@@ -32,11 +32,7 @@ import {
   EditorView,
   WidgetType,
 } from "@codemirror/view";
-import {
-  isLanguageBlockClose,
-  langMatch,
-  matchLanguageBlockOpen,
-} from "./syntax";
+import { isLanguageBlockClose, matchLanguageBlockOpen } from "./syntax";
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -141,7 +137,12 @@ function computeDecorations(
         // Complete block: blockStartLine … ln
         const blockLineCount = ln - blockStartLine + 1;
         // Case-insensitive: "zh-cn" in note matches "zh-CN" in settings
-        const isActive = langMatch(blockLang, active);
+        const activeNorm = active.trim().toLowerCase();
+        const isActive =
+          activeNorm === "all" ||
+          blockLang
+            .split(/\s+/)
+            .some((code) => code.toLowerCase() === activeNorm);
 
         if (!isActive) {
           // Always use full-hide when hideMode is true

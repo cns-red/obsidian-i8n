@@ -18,8 +18,12 @@ export interface MultilingualNotesSettings {
   defaultLanguage: string;
   /** Whether editing mode hides or just dims other-language blocks */
   hideInEditor: boolean;
-  /** Show inline language label badges in reading mode */
-  showLangBadges: boolean;
+  /** Show language selector bar at top of multilingual notes in reading mode */
+  showLangHeader: boolean;
+  /** Show the ribbon icon button in the left sidebar */
+  showRibbon: boolean;
+  /** Show the active-language indicator in the bottom status bar */
+  showStatusBar: boolean;
 }
 
 export const DEFAULT_SETTINGS: MultilingualNotesSettings = {
@@ -32,7 +36,9 @@ export const DEFAULT_SETTINGS: MultilingualNotesSettings = {
   ],
   defaultLanguage: "en",
   hideInEditor: true,
-  showLangBadges: true,
+  showLangHeader: true,
+  showRibbon: true,
+  showStatusBar: true,
 };
 
 // ─── Syntax examples (shown in settings UI and README) ─────────────────────
@@ -123,16 +129,42 @@ export class MultilingualNotesSettingTab extends PluginSettingTab {
         });
       });
 
-    // ── Language badges ──────────────────────────────────────────────────
+    // ── Language header ──────────────────────────────────────────────────
     new Setting(containerEl)
-      .setName(t("settings.show_badges_name"))
-      .setDesc(t("settings.show_badges_desc"))
+      .setName(t("settings.show_lang_header_name"))
+      .setDesc(t("settings.show_lang_header_desc"))
       .addToggle((toggle) => {
-        toggle.setValue(this.plugin.settings.showLangBadges);
+        toggle.setValue(this.plugin.settings.showLangHeader);
         toggle.onChange(async (value) => {
-          this.plugin.settings.showLangBadges = value;
+          this.plugin.settings.showLangHeader = value;
           await this.plugin.saveSettings();
           this.plugin.refreshAllViews();
+        });
+      });
+
+    // ── Ribbon button ────────────────────────────────────────────────────
+    new Setting(containerEl)
+      .setName(t("settings.show_ribbon_name"))
+      .setDesc(t("settings.show_ribbon_desc"))
+      .addToggle((toggle) => {
+        toggle.setValue(this.plugin.settings.showRibbon);
+        toggle.onChange(async (value) => {
+          this.plugin.settings.showRibbon = value;
+          await this.plugin.saveSettings();
+          this.plugin.refreshRibbon();
+        });
+      });
+
+    // ── Status bar ───────────────────────────────────────────────────────
+    new Setting(containerEl)
+      .setName(t("settings.show_status_bar_name"))
+      .setDesc(t("settings.show_status_bar_desc"))
+      .addToggle((toggle) => {
+        toggle.setValue(this.plugin.settings.showStatusBar);
+        toggle.onChange(async (value) => {
+          this.plugin.settings.showStatusBar = value;
+          await this.plugin.saveSettings();
+          this.plugin.refreshStatusBar();
         });
       });
 

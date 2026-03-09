@@ -117,7 +117,7 @@ export function registerReadingModeProcessor(plugin: MultilingualNotesPlugin): v
       const { text: source, lineStart, lineEnd } = info;
       const active      = plugin.settings.activeLanguage;
       const defaultLang = plugin.settings.defaultLanguage;
-      const showBadges  = plugin.settings.showLangBadges;
+      const showLangHeader = plugin.settings.showLangHeader;
 
       // Parse (cached) all lang blocks from the full source.
       const cacheKey = `${ctx.sourcePath}|${source.length}`;
@@ -125,6 +125,11 @@ export function registerReadingModeProcessor(plugin: MultilingualNotesPlugin): v
       if (!blocks) {
         blocks = parseLangBlocks(source);
         blockCache.set(cacheKey, blocks);
+      }
+
+      // ── Language header: inject once at top of sizer for multilingual notes ──
+      if (blocks.length > 0 && showLangHeader) {
+        ensureLangHeader(el, blocks, plugin);
       }
 
       // ── Feature 3: no markers → whole note is the default language ─────────
@@ -154,17 +159,9 @@ export function registerReadingModeProcessor(plugin: MultilingualNotesPlugin): v
             return;
           }
 
-          // Normal case: single-line fence element.
-          if (!isActive) {
-            el.style.display = "none";
-          } else if (showBadges) {
-            // Reset stale display:none, then replace raw fence with a badge.
-            el.style.display = "";
-            el.innerHTML = "";
-            el.appendChild(createBadge(block.langCode, plugin));
-          } else {
-            el.style.display = "none"; // hide raw fence syntax even when active
-          }
+          // Normal case: single-line fence element — always hide the raw marker.
+          // The language header at the top of the note handles the language indicator.
+          el.style.display = "none";
           return;
         }
 
@@ -183,9 +180,6 @@ export function registerReadingModeProcessor(plugin: MultilingualNotesPlugin): v
             el.style.display = "none";
           } else {
             el.style.display = "";
-            if (showBadges && !block.openVisible) {
-              ensureBadgeForHiddenOpenMarker(el, block, plugin);
-            }
 
             if (block.closeLine >= 0 && lineEnd >= block.closeLine) {
               removeCloseMarkerFromElement(el);
@@ -243,36 +237,63 @@ function removeCloseMarkerFromElement(el: HTMLElement): void {
 
 
 
-function ensureBadgeForHiddenOpenMarker(
+/**
+ * Inject a language-selector bar at the top of the note's sizer container.
+ * Uses a data attribute to guarantee it is injected only once per render pass.
+ */
+function ensureLangHeader(
   el: HTMLElement,
-  block: LangBlock,
+  blocks: LangBlock[],
   plugin: MultilingualNotesPlugin,
 ): void {
   const owner = el.closest(".markdown-preview-sizer") ?? el.parentElement;
   if (!owner) return;
+  if (owner.querySelector(".ml-lang-header")) return;
 
-  const marker = `ml-badge-${block.openLine}`;
-  if (owner.querySelector(`[data-ml-badge-for="${marker}"]`)) return;
+  // Collect unique language codes present in this document.
+  const langCodes = new Set<string>();
+  for (const block of blocks) {
+    block.langCode.split(/\s+/).filter(Boolean).forEach((c) => langCodes.add(c));
+  }
+  if (langCodes.size === 0) return;
 
-  const badge = createBadge(block.langCode, plugin);
-  badge.setAttribute("data-ml-badge-for", marker);
-  el.before(badge);
+  const header = document.createElement("div");
+  header.className = "ml-lang-header";
+
+  const active = plugin.settings.activeLanguage;
+
+  // ALL pill — always present when there are multiple language codes.
+  if (langCodes.size > 1) {
+    header.appendChild(
+      createHeaderPill("ALL", "ALL", active === "ALL", (code) => plugin.setActiveLanguage(code)),
+    );
+  }
+
+  // One pill per language found in the document.
+  for (const code of langCodes) {
+    const lang = plugin.settings.languages.find(
+      (l) => l.code.toLowerCase() === code.toLowerCase(),
+    );
+    const label = lang ? lang.label : code;
+    const isActive = active !== "ALL" && active.toLowerCase() === code.toLowerCase();
+    header.appendChild(
+      createHeaderPill(code, label, isActive, (c) => plugin.setActiveLanguage(c)),
+    );
+  }
+
+  owner.prepend(header);
 }
 
-function createBadge(langCode: string, plugin: MultilingualNotesPlugin): HTMLElement {
-  const normalized = langCode.trim();
-  const codes = normalized.split(/\s+/).filter(Boolean);
-  const labels = codes.map((code) => {
-    if (code.toLowerCase() === "all") return "ALL";
-
-    // Case-insensitive exact lookup so "zh-cn" finds configured "zh-CN".
-    const lang = plugin.settings.languages.find((l) => l.code.toLowerCase() === code.toLowerCase());
-    return lang ? lang.label : code;
-  });
-
-  const badge = document.createElement("span");
-  badge.className = "ml-lang-badge";
-  badge.textContent = labels.length > 0 ? labels.join(" · ") : normalized;
-  badge.setAttribute("data-lang", langCode);
-  return badge;
+function createHeaderPill(
+  code: string,
+  label: string,
+  isActive: boolean,
+  onSwitch: (code: string) => void,
+): HTMLElement {
+  const pill = document.createElement("span");
+  pill.className = "ml-lang-pill" + (isActive ? " ml-lang-pill--active" : "");
+  pill.textContent = label;
+  pill.setAttribute("data-lang", code);
+  pill.addEventListener("click", () => onSwitch(code));
+  return pill;
 }

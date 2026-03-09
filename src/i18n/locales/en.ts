@@ -19,6 +19,7 @@ const en = {
     switch_show_all: "Switch language: Show all languages",
     cycle_next: "Cycle to next language",
     insert_lang_block: "Insert language block",
+    smart_insert: "Smart insert language block",
     wrap_selection: "Wrap selection in language block",
     insert_template: "Insert multilingual block template (all languages)",
   },
@@ -41,8 +42,12 @@ const en = {
     hide_other_name: "Hide other languages in editor",
     hide_other_desc:
       "When ON: non-active language blocks are collapsed to a thin bar in editing mode — you can only type in the current language. When OFF: all language blocks are shown normally in the editor so you can freely read and edit every translation.",
-    show_badges_name: "Show language badges in reading mode",
-    show_badges_desc: "Display a small label above each visible language block in reading mode.",
+    show_lang_header_name: "Show language switcher in reading mode",
+    show_lang_header_desc: "Displays a language selector bar at the top of each multilingual note in reading mode.",
+    show_ribbon_name: "Show ribbon button",
+    show_ribbon_desc: "Show the language switcher button in the left sidebar ribbon.",
+    show_status_bar_name: "Show status bar indicator",
+    show_status_bar_desc: "Show the active language indicator in the bottom-right status bar.",
     configured_languages_title: "Configured Languages",
     configured_languages_desc:
       'Add, remove or rename language entries. The "code" must exactly match the code you use in your lang markers.',

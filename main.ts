@@ -29,7 +29,7 @@ import {
   wrapSelectionInLangBlock,
 } from "./src/commands/languageBlocks";
 import { buildStatusBar, showLanguageMenu } from "./src/ui/statusBar";
-import { applyOutlineFilter } from "./src/ui/outlineFilter";
+import { applyOutlineFilter, ensureOutlineControl } from "./src/ui/outlineFilter";
 import { resolveFrontmatterLanguage } from "./src/language-state/frontmatter";
 
 export default class MultilingualNotesPlugin extends Plugin {
@@ -53,6 +53,7 @@ export default class MultilingualNotesPlugin extends Plugin {
       this.showLanguageMenu(evt);
     });
     this.ribbonEl.addClass("ml-ribbon-button");
+    this.refreshRibbon();
 
     this.statusBarEl = this.addStatusBarItem();
     this.statusBarEl.style.order = "999";
@@ -126,6 +127,10 @@ export default class MultilingualNotesPlugin extends Plugin {
     const outlineLeaves = this.app.workspace.getLeavesOfType("outline");
     if (outlineLeaves.length === 0) return;
 
+    ensureOutlineControl(outlineLeaves, this.settings, async (code) => {
+      await this.setActiveLanguage(code);
+    });
+
     const resetAll = () => {
       for (const leaf of outlineLeaves) {
         leaf.view.containerEl.querySelectorAll<HTMLElement>(".tree-item").forEach((el) => {
@@ -166,8 +171,15 @@ export default class MultilingualNotesPlugin extends Plugin {
     });
   }
 
+  refreshRibbon(): void {
+    this.ribbonEl.style.display = this.settings.showRibbon ? "" : "none";
+  }
+
   refreshStatusBar(): void {
-    buildStatusBar(this.statusBarEl, this.settings, (evt: MouseEvent) => this.showLanguageMenu(evt));
+    this.statusBarEl.style.display = this.settings.showStatusBar ? "" : "none";
+    if (this.settings.showStatusBar) {
+      buildStatusBar(this.statusBarEl, this.settings, (evt: MouseEvent) => this.showLanguageMenu(evt));
+    }
   }
 
   private showLanguageMenu(evt: MouseEvent): void {
@@ -207,6 +219,15 @@ export default class MultilingualNotesPlugin extends Plugin {
       name: t("command.insert_lang_block"),
       editorCallback: (editor: Editor) => {
         insertLangBlock(editor, this.getInsertionLanguageCode());
+      },
+    });
+
+    this.addCommand({
+      id: "smart-insert-lang-block",
+      name: t("command.smart_insert"),
+      hotkeys: [{ modifiers: ["Alt"], key: "i" }],
+      editorCallback: (editor: Editor) => {
+        this.smartInsertLanguageBlock(editor);
       },
     });
 

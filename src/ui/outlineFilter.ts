@@ -1,4 +1,4 @@
-/** Outline filtering utilities to mirror active-language visibility. */
+/** Outline panel filtering and language-selector bar injection. */
 
 import { WorkspaceLeaf } from "obsidian";
 import { langMatch, parseLangBlocks } from "../markdownProcessor";
@@ -16,7 +16,7 @@ export function applyOutlineFilter(
   const blocks = parseLangBlocks(source);
   const visible: boolean[] = headings.map((h) => {
     const line = h.position.start.line;
-    if (blocks.length === 0) return langMatch(active, defaultLanguage);
+    if (blocks.length === 0) return langMatch(defaultLanguage, active);
     for (const block of blocks) {
       if (line > block.openLine && (block.closeLine < 0 || line < block.closeLine)) {
         return langMatch(block.langCode, active);
@@ -33,11 +33,6 @@ export function applyOutlineFilter(
   }
 }
 
-/**
- * Inject (or refresh) a compact language-selector bar into each outline panel.
- * Called every time the active language or outline view changes so the active
- * pill always reflects the current state.
- */
 export function ensureOutlineControl(
   outlineLeaves: WorkspaceLeaf[],
   settings: MultilingualNotesSettings,
@@ -48,25 +43,19 @@ export function ensureOutlineControl(
   for (const leaf of outlineLeaves) {
     const containerEl = leaf.view.containerEl;
 
-    // Remove stale bar so active-pill state is always fresh.
     containerEl.querySelector(".ml-outline-lang-bar")?.remove();
 
-    if (presentCodes && presentCodes.size === 0) {
-      // If we know exactly what's present and there's nothing, hide the bar.
-      continue;
-    }
+    if (presentCodes && presentCodes.size === 0) continue;
 
     const bar = document.createElement("div");
     bar.className = "ml-outline-lang-bar";
 
     const active = activeLanguage;
 
-    // ALL pill
     if (!presentCodes || presentCodes.size > 1) {
       bar.appendChild(createOutlinePill("ALL", "ALL", active === "ALL", onSwitch));
     }
 
-    // One pill per configured language that is actually present
     const codesToRender = presentCodes
       ? settings.languages.filter(l => Array.from(presentCodes).some(pc => pc.toLowerCase() === l.code.toLowerCase()))
       : settings.languages;
@@ -77,7 +66,6 @@ export function ensureOutlineControl(
       );
     }
 
-    // Insert before the scrollable content area if it exists.
     const viewContent = containerEl.querySelector<HTMLElement>(".view-content");
     if (viewContent) {
       viewContent.before(bar);

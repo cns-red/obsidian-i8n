@@ -22,7 +22,8 @@ import {
   registerReadingModeProcessor,
   clearBlockCache,
   parseLangBlocks,
-  extractAvailableLanguagesFromBlocks
+  extractAvailableLanguagesFromBlocks,
+  langMatch,
 } from "./src/markdownProcessor";
 import { buildEditorExtension, setActiveLangEffect } from "./src/editorExtension";
 import { matchLanguageBlockOpen, isLanguageBlockClose } from "./src/syntax";
@@ -59,6 +60,10 @@ export default class MultilingualNotesPlugin extends Plugin {
       buildEditorExtension({
         getActiveLanguage: () => this.getEffectiveLanguageForActiveLeaf(),
         getHideMode: () => this.settings.hideInEditor,
+        isInScope: () => {
+          const file = this.app.workspace.getActiveFile();
+          return !file || this.isFileInScope(file.path);
+        },
       })
     );
 
@@ -84,36 +89,34 @@ export default class MultilingualNotesPlugin extends Plugin {
 
     this.registerEvent(
       this.app.workspace.on("file-menu", (menu: Menu, file: TAbstractFile) => {
-        import("obsidian").then(({ TFile }) => {
-          if (file instanceof TFile && file.extension === "md") {
-            menu.addItem((item) => {
-              item.setTitle(t("menu.multilingual") || "Multilingual").setIcon("languages");
-              const submenu = (item as any).setSubmenu() as Menu;
+        if (file instanceof TFile && file.extension === "md") {
+          menu.addItem((item) => {
+            item.setTitle(t("menu.multilingual") || "Multilingual").setIcon("languages");
+            const submenu = (item as any).setSubmenu() as Menu;
 
-              submenu.addItem((exportItem) => {
-                exportItem.setTitle(t("menu.export") || "Export").setIcon("download");
-                const exportSubmenu = (exportItem as any).setSubmenu() as Menu;
+            submenu.addItem((exportItem) => {
+              exportItem.setTitle(t("menu.export") || "Export").setIcon("download");
+              const exportSubmenu = (exportItem as any).setSubmenu() as Menu;
 
-                for (const lang of this.settings.languages) {
-                  exportSubmenu.addItem((langItem) => {
-                    langItem.setTitle(lang.label);
-                    langItem.onClick(async () => {
-                      const content = await this.app.vault.read(file);
-                      const blocks = parseLangBlocks(content);
-                      const existing = extractAvailableLanguagesFromBlocks(blocks, this.settings.languages);
+              for (const lang of this.settings.languages) {
+                exportSubmenu.addItem((langItem) => {
+                  langItem.setTitle(lang.label);
+                  langItem.onClick(async () => {
+                    const content = await this.app.vault.read(file);
+                    const blocks = parseLangBlocks(content);
+                    const existing = extractAvailableLanguagesFromBlocks(blocks, this.settings.languages);
 
-                      if (!existing.has(lang.code.toLowerCase()) && existing.size > 0) {
-                        new Notice(`No ${lang.label} block found. Exporting shared content only.`);
-                      }
-                      const extracted = this.extractLanguageContent(content, lang.code);
-                      this.downloadAsFile(`${file.basename}-${lang.code}.md`, extracted);
-                    });
+                    if (!existing.has(lang.code.toLowerCase()) && existing.size > 0) {
+                      new Notice(`No ${lang.label} block found. Exporting shared content only.`);
+                    }
+                    const extracted = this.extractLanguageContent(content, lang.code);
+                    this.downloadAsFile(`${file.basename}-${lang.code}.md`, extracted);
                   });
-                }
-              });
+                });
+              }
             });
-          }
-        });
+          });
+        }
       })
     );
 
@@ -193,6 +196,17 @@ export default class MultilingualNotesPlugin extends Plugin {
 
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
+  }
+
+  /** Returns false if `filePath` is excluded or outside the configured working directories. */
+  public isFileInScope(filePath: string): boolean {
+    const work = this.settings.workDirs.filter(Boolean);
+    const excl = this.settings.excludeDirs.filter(Boolean);
+    const underDir = (path: string, dir: string) =>
+      path === dir || path.startsWith(dir.endsWith("/") ? dir : dir + "/");
+    if (excl.some((d) => underDir(filePath, d))) return false;
+    if (work.length === 0) return true;
+    return work.some((d) => underDir(filePath, d));
   }
 
   async setActiveLanguage(code: string): Promise<void> {
@@ -348,7 +362,7 @@ export default class MultilingualNotesPlugin extends Plugin {
 
   private scheduleStabilizedRefresh(): void {
     const token = ++this.languageRefreshToken;
-    window.setTimeout(() => {
+    setTimeout(() => {
       if (token !== this.languageRefreshToken) return;
       this.refreshAllViews();
     }, 80);
@@ -394,15 +408,13 @@ export default class MultilingualNotesPlugin extends Plugin {
     const activeFile = this.app.workspace.getActiveFile();
     const active = this.getEffectiveLanguageForActiveLeaf();
 
-    if (!activeFile) {
+    if (!activeFile || !this.isFileInScope(activeFile.path)) {
       ensureOutlineControl(outlineLeaves, this.settings, async (code) => {
         await this.setLanguageForActiveLeaf(code);
-      }, active, new Set()); // Hide pills if no active file
+      }, active, new Set());
       resetAll();
       return;
     }
-
-    const normalizedPresentCodes = new Set<string>();
 
     const headings = this.app.metadataCache.getFileCache(activeFile)?.headings;
 
@@ -744,16 +756,6 @@ export default class MultilingualNotesPlugin extends Plugin {
     let result = "";
     let cursor = 0;
 
-    // langMatch uses the same logic as markdownProcessor, import not direct but we can inline it here or import it 
-    // Wait, parseLangBlocks already gives us the exact bounds. Let's define langMatch locally just in case.
-    const langMatch = (blockLangs: string, target: string) => {
-      const lowerTarget = target.toLowerCase();
-      return blockLangs.split(/\s+/).some((code) => {
-        const lowerCode = code.toLowerCase();
-        return lowerCode === lowerTarget || lowerCode === "all";
-      });
-    };
-
     for (const block of blocks) {
       if (block.start > cursor) {
         result += source.slice(cursor, block.start);
@@ -908,7 +910,7 @@ export default class MultilingualNotesPlugin extends Plugin {
     modal.onInsertCallback = (translatedText, targetLangCode) => {
       // Find where to insert. We can use the end of the active block.
       const pos = editor.offsetToPos(activeBlock!.end);
-      let insertionContent = `\n\n:::lang ${targetLangCode}\n${translatedText}\n:::`;
+      let insertionContent = `\n\n:::li8n ${targetLangCode}\n${translatedText}\n:::`;
 
       // Attempt to guess the boundary syntax based on the source block if possible
       const sourceOpenTag = text.slice(activeBlock!.start, activeBlock!.innerStart).trim();

@@ -1,12 +1,9 @@
-/**
- * Shared language-block syntax helpers used by parser and editor commands.
- * Keep this module as the single source of truth for markers and templates.
- */
+/** Single source of truth for language-block syntax patterns. */
 
 export const COMMENT_OPEN_PREFIX = "[//]: # (li8n ";
 export const COMMENT_CLOSE_MARKER = "[//]: # (endli8n)";
 
-/** Open-marker patterns. Capture group 1 contains one or more language codes. */
+/** Open-marker patterns. Capture group 1 = one or more space-separated language codes. */
 export const OPEN_PATTERNS: RegExp[] = [
   /^:::\s*li8n\s+([\w-]+(?:\s+[\w-]+)*)\s*$/,
   /^\{%-?\s*li8n\s+([\w-]+(?:\s+[\w-]+)*)\s*-?%\}$/i,
@@ -43,6 +40,7 @@ export function buildCommentLangBlock(langCode: string, body = ""): string {
   return `${COMMENT_OPEN_PREFIX}${langCode})${content}\n${COMMENT_CLOSE_MARKER}`;
 }
 
+/** Case-insensitive check whether `active` is one of `blockLang`'s space-separated codes. */
 export function langCodeIncludes(blockLang: string, active: string): boolean {
   const activeNorm = active.toLowerCase();
   return blockLang.split(/\s+/).some((code) => code.toLowerCase() === activeNorm);

@@ -1,4 +1,3 @@
-import { requestUrl, RequestUrlParam } from "obsidian";
 import type { MultilingualNotesSettings } from "../settings";
 
 export interface AIResponse {
@@ -20,43 +19,36 @@ export async function streamTranslation(
     if (!aiApiKey) throw new Error("API Key is not configured.");
     if (!aiModel) throw new Error("AI Model is not configured.");
 
-    let endpoint = aiApiBase;
-    if (!endpoint.endsWith("/chat/completions")) {
-        endpoint = endpoint.replace(/\/$/, "") + "/chat/completions";
-    }
+    const endpoint = aiApiBase.endsWith("/chat/completions")
+        ? aiApiBase
+        : aiApiBase.replace(/\/$/, "") + "/chat/completions";
 
-    const prompt = `${aiSystemPrompt}\n\nSource language: ${sourceLangName || "Auto-detect"}\nTarget language: ${targetLangName}`;
-
-    const requestParams = {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${aiApiKey}`,
-        },
-        body: JSON.stringify({
-            model: aiModel,
-            messages: [
-                { role: "system", content: prompt },
-                { role: "user", content: sourceText },
-            ],
-            temperature: 0.3,
-            stream: true, // Request streaming SSE format from OpenAI compatible endpoints
-        }),
-    };
+    const prompt = `${aiSystemPrompt}\n\nSource language: ${sourceLangName ?? "Auto-detect"}\nTarget language: ${targetLangName}`;
 
     let response: Response;
     try {
-        response = await fetch(endpoint, requestParams);
+        response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${aiApiKey}` },
+            body: JSON.stringify({
+                model: aiModel,
+                messages: [
+                    { role: "system", content: prompt },
+                    { role: "user", content: sourceText },
+                ],
+                temperature: 0.3,
+                stream: true,
+            }),
+        });
     } catch (err: any) {
-        throw new Error(`Network error connecting to API: ${err.message}. If using a local API, ensure it supports CORS from app://obsidian.md.`);
+        throw new Error(`Network error: ${err.message}. If using a local API, ensure CORS is enabled for app://obsidian.md.`);
     }
 
     if (!response.ok) {
-        const errText = await response.text().catch(() => "Unknown network or CORS error");
-        throw new Error(`HTTP Error ${response.status}: ${errText}`);
+        const errText = await response.text().catch(() => "Unknown error");
+        throw new Error(`HTTP ${response.status}: ${errText}`);
     }
 
-    // Read the stream
     const reader = response.body?.getReader();
     if (!reader) throw new Error("Response body is not readable.");
 
@@ -68,26 +60,19 @@ export async function streamTranslation(
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-
-        // Parse SSE chunks (data: {...})
         const lines = buffer.split("\n");
-        buffer = lines.pop() || ""; // Keep the last incomplete line in the buffer
+        buffer = lines.pop() ?? "";
 
         for (const line of lines) {
-            const cleanLine = line.trim();
-            if (cleanLine.startsWith("data: ")) {
-                const dataStr = cleanLine.substring(6);
-                if (dataStr === "[DONE]") return; // End of stream
-
-                try {
-                    const data = JSON.parse(dataStr);
-                    const chunk = data.choices?.[0]?.delta?.content;
-                    if (chunk) {
-                        onChunk(chunk);
-                    }
-                } catch (e) {
-                    console.debug("Failed to parse stream chunk JSON", dataStr, e);
-                }
+            const clean = line.trim();
+            if (!clean.startsWith("data: ")) continue;
+            const data = clean.slice(6);
+            if (data === "[DONE]") return;
+            try {
+                const chunk = JSON.parse(data).choices?.[0]?.delta?.content;
+                if (chunk) onChunk(chunk);
+            } catch {
+                // Malformed SSE chunk — skip
             }
         }
     }

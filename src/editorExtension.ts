@@ -1,22 +1,3 @@
-/**
- * editorExtension.ts
- *
- * CodeMirror 6 extension that hides (or dims) non-active language blocks
- * in Obsidian's Live Preview / editing mode.
- *
- * Supported open-block syntax (same as markdownProcessor):
- *   :::li8n zh-cn
- *   {% li8n zh-cn %}
- *   [//]: # (li8n zh-cn)
- *   %% li8n zh-cn %%
- *
- * Supported open-block close tags:
- *   :::
- *   {% endli8n %}
- *   [//]: # (endli8n)
- *   %% endli8n %%
- */
-
 import {
   EditorState,
   Extension,
@@ -34,25 +15,19 @@ import {
 } from "@codemirror/view";
 import { isLanguageBlockClose, langCodeIncludes, matchLanguageBlockOpen } from "./syntax";
 
-// ── Public API ────────────────────────────────────────────────────────────────
-
-/** Effect dispatched to the editor when the active language changes. */
 export const setActiveLangEffect = StateEffect.define<string>();
 
-/** Settings snapshot passed into the extension factory. */
 export interface LangExtensionConfig {
   getActiveLanguage: () => string;
   getHideMode: () => boolean;
+  isInScope: () => boolean;
 }
 
-/** Build and return the array of CM6 extensions. */
 export function buildEditorExtension(config: LangExtensionConfig): Extension[] {
   return [langDecorationsField(config), hideTheme];
 }
 
-// ── Marker parsing is shared in src/syntax.ts ─────────────────────────────
 
-// ── Collapsed widget (placeholder shown when a block is hidden) ───────────────
 
 class HiddenBlockWidget extends WidgetType {
   constructor(private langCode: string, private lineCount: number) {
@@ -76,55 +51,37 @@ class HiddenBlockWidget extends WidgetType {
   }
 }
 
-// ── StateField ────────────────────────────────────────────────────────────────
-
 function langDecorationsField(config: LangExtensionConfig): StateField<DecorationSet> {
   return StateField.define<DecorationSet>({
     create(state: EditorState): DecorationSet {
       return computeDecorations(state, config);
     },
-
     update(deco: DecorationSet, tr: Transaction): DecorationSet {
-      const hasLangEffect = tr.effects.some((e) => e.is(setActiveLangEffect));
-      if (tr.docChanged || hasLangEffect) {
+      if (tr.docChanged || tr.effects.some((e) => e.is(setActiveLangEffect))) {
         return computeDecorations(tr.state, config);
       }
       return deco.map(tr.changes);
     },
-
     provide(field) {
       return EditorView.decorations.from(field);
     },
   });
 }
 
-// ── Core computation ──────────────────────────────────────────────────────────
-
-function computeDecorations(
-  state: EditorState,
-  config: LangExtensionConfig
-): DecorationSet {
+function computeDecorations(state: EditorState, config: LangExtensionConfig): DecorationSet {
+  if (!config.isInScope()) return RangeSet.empty;
   const active = config.getActiveLanguage();
-  const hideMode = config.getHideMode();
-
-  // hideMode = false means "show everything in editor — no filtering at all".
-  // Return an empty decoration set so all lang blocks are fully editable.
-  if (!hideMode) {
-    return RangeSet.empty;
-  }
+  if (!config.getHideMode()) return RangeSet.empty;
 
   const decorations: Range<Decoration>[] = [];
   const doc = state.doc;
-  const lineCount = doc.lines;
 
   let insideBlock = false;
   let blockLang = "";
-  let blockStartLine = 0; // 1-based
+  let blockStartLine = 0;
 
-  for (let ln = 1; ln <= lineCount; ln++) {
-    const line = doc.line(ln);
-    const text = line.text;
-
+  for (let ln = 1; ln <= doc.lines; ln++) {
+    const text = doc.line(ln).text;
     if (!insideBlock) {
       const langCode = matchLanguageBlockOpen(text);
       if (langCode !== null) {
@@ -132,37 +89,20 @@ function computeDecorations(
         blockLang = langCode;
         blockStartLine = ln;
       }
-    } else {
-      if (isLanguageBlockClose(text)) {
-        // Complete block: blockStartLine … ln
-        const blockLineCount = ln - blockStartLine + 1;
-        // Case-insensitive: "zh-cn" in note matches "zh-CN" in settings
-        const isActive = active === "ALL" || langCodeIncludes(blockLang, active);
-
-        if (!isActive) {
-          // Always use full-hide when hideMode is true
-          applyHideDecorations(
-            decorations,
-            state,
-            blockStartLine,
-            ln,
-            blockLang,
-            blockLineCount,
-          );
-        }
-
-        insideBlock = false;
-        blockLang = "";
-        blockStartLine = 0;
+    } else if (isLanguageBlockClose(text)) {
+      if (active !== "ALL" && !langCodeIncludes(blockLang, active)) {
+        applyHideDecorations(decorations, state, blockStartLine, ln, blockLang, ln - blockStartLine + 1);
       }
+      insideBlock = false;
+      blockLang = "";
+      blockStartLine = 0;
     }
   }
 
-  decorations.sort((a, b) => a.from - b.from);
+  // Decorations are pushed in line order, no sort needed.
   return RangeSet.of(decorations);
 }
 
-// Collapses a non-active block to a thin placeholder bar in the editor.
 function applyHideDecorations(
   out: Range<Decoration>[],
   state: EditorState,
@@ -182,8 +122,6 @@ function applyHideDecorations(
   );
 }
 
-// ── Theme ─────────────────────────────────────────────────────────────────────
-
 const hideTheme = EditorView.baseTheme({
   ".ml-hidden-block-placeholder": {
     display: "inline-block",
@@ -193,9 +131,5 @@ const hideTheme = EditorView.baseTheme({
     borderRadius: "2px",
     cursor: "pointer",
     opacity: "0.4",
-  },
-  ".ml-dimmed-block": {
-    opacity: "0.25",
-    filter: "grayscale(80%)",
   },
 });

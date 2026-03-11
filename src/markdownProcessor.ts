@@ -1,23 +1,9 @@
-/**
- * Reading-mode post-processor.
- *
- * Obsidian invokes post-processors per rendered element, not once per file.
- * We therefore parse the full source via ctx.getSectionInfo(el) and decide
- * per element whether to show or hide it for the active language.
- */
-
-
 import { MarkdownPostProcessorContext, MarkdownRenderChild, WorkspaceLeaf } from "obsidian";
 import type MultilingualNotesPlugin from "../main";
 import { isLanguageBlockClose, langCodeIncludes, matchLanguageBlockOpen } from "./syntax";
 
-// ── Marker parsing uses shared helpers in src/syntax.ts ────────────────
-
-// ── Ultra-fast Global Polling Queue for Detached DOM Fragments ─────────
-// Obsidian's virtual scroller generates detached HTML elements and aggressively
-// fires `onload` lifecycles on them BEFORE they are physically mounted to `document.body`.
-// This asynchronous queue safely parks them and evaluates them the exact nanosecond
-// they enter the real DOM, guaranteeing they fetch their language from their true parent Leaf.
+// RAF polling queue: Obsidian's virtual scroller generates detached elements before DOM mount.
+// Park them here and re-evaluate once they land in the real DOM.
 const pendingMountElements = new Set<{ el: HTMLElement, evaluate: () => void }>();
 let isMountPolling = false;
 
@@ -35,20 +21,15 @@ function pollPendingMounts() {
   requestAnimationFrame(pollPendingMounts);
 }
 
-// ── Internal data ────────────────────────────────────────────────────────────
-
 export interface LangBlock {
   langCode: string;
-  /** 0-based line number of the open marker in the source. */
+  /** 0-based line index of the open marker. */
   openLine: number;
-  /** Whether the open marker renders visibly. */
   openVisible: boolean;
-  /** 0-based line number of the close marker (-1 if the block is never closed). */
+  /** 0-based line index of the close marker; -1 if unclosed. */
   closeLine: number;
-  /** Whether the close marker renders visibly. */
   closeVisible: boolean;
-
-  // Exact character offsets for text injection/extraction:
+  /** Character offsets: start/end span the full block including markers. */
   start: number;
   innerStart: number;
   innerEnd: number;
@@ -57,30 +38,18 @@ export interface LangBlock {
 
 function isVisibleMarkerLine(line: string): boolean {
   const text = line.trim();
-  // Obsidian comment and markdown link-reference hacks are not rendered.
   if (/^\[\/\/\]:\s*#\s*\(/.test(text)) return false;
   if (/^%%.*%%$/.test(text)) return false;
   return true;
 }
 
-// ── Cache ─────────────────────────────────────────────────────────────────────
-
-/**
- * Maps  "sourcePath|sourceLength"  →  parsed blocks for that note.
- * Using source length as a cheap change-detector.
- * Also cleared whenever the user switches language.
- */
+// Block cache: "sourcePath|quickHash(source)" → parsed blocks.
 const blockCache = new Map<string, LangBlock[]>();
 
-/** Called from main.ts whenever the active language changes. */
 export function clearBlockCache(): void {
   blockCache.clear();
 }
 
-/** 
- * Fast string hash to definitively distinguish different documents/embeds 
- * containing identical total text lengths.
- */
 function quickHash(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -89,20 +58,11 @@ function quickHash(str: string): number {
   return hash;
 }
 
-// ── Language code helpers ─────────────────────────────────────────────────────
-
-/**
- * Case-insensitive comparison for language codes.
- * "zh-CN", "zh-cn", "ZH-CN" all match each other.
- * "zh-CN en" space style supports multiple languages, indicating that all multi-language versions are rendered from it.
- * This is critical: notes may use :::lang zh-cn while settings store "zh-CN".
- */
+/** Case-insensitive match; "ALL" matches everything. */
 export function langMatch(blockLang: string, active: string): boolean {
   if (active === "ALL") return true;
   return langCodeIncludes(blockLang, active);
 }
-
-// ── Parsing ───────────────────────────────────────────────────────────────────
 
 export function parseLangBlocks(source: string): LangBlock[] {
   const lines = source.split("\n");
@@ -177,25 +137,18 @@ export function extractAvailableLanguagesFromBlocks(blocks: LangBlock[], configu
   return existing;
 }
 
-// ── Post-processor ────────────────────────────────────────────────────────────
-
 export function registerReadingModeProcessor(plugin: MultilingualNotesPlugin): void {
   plugin.registerMarkdownPostProcessor(
     (el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
-      // getSectionInfo returns the FULL note source plus the line range of
-      // this specific rendered element.
+      if (!plugin.isFileInScope(ctx.sourcePath)) return;
       const info = ctx.getSectionInfo(el);
-      if (!info) return; // Can't determine position → leave untouched.
+      if (!info) return;
 
       const { text: source, lineStart, lineEnd } = info;
       const initialActive = plugin.getLanguageForElement(el, ctx.sourcePath);
       const defaultLang = plugin.settings.defaultLanguage;
       const showLangHeader = plugin.settings.showLangHeader;
 
-      // Parse (cached) all lang blocks from the full source.
-      // Important: Different sections can have identical lengths, so source-length-only
-      // keys will collide in transclusions. Using a hash guarantees uniqueness and prevents
-      // O(n^2) re-parsing of huge documents per chunk.
       const cacheKey = `${ctx.sourcePath}|${quickHash(source)}`;
       const blocks = blockCache.get(cacheKey) || (() => {
         const parsed = parseLangBlocks(source);
@@ -203,8 +156,6 @@ export function registerReadingModeProcessor(plugin: MultilingualNotesPlugin): v
         return parsed;
       })();
 
-      // Wrap evaluation logic in a reusable closure so it can be re-run firmly
-      // once Obsidian attaches the detached DOM fragment to the correct leaf pane.
       let evaluateVisibility = (active: string) => {
         el.classList.remove("ml-language-hidden");
       };
@@ -260,9 +211,6 @@ export function registerReadingModeProcessor(plugin: MultilingualNotesPlugin): v
         }
       }
 
-      // 1. Initial Synchronous Application: Stops flicker when elements spawn in-bounds.
-      //    Track whether the initial lookup was definitive (element was in the DOM) or
-      //    a best-effort guess (element was detached — virtual-scroller lazy-render).
       const initialDefinitive = el.isConnected;
       evaluateVisibility(initialActive);
       if (blocks.length > 0 && showLangHeader) {
@@ -272,25 +220,14 @@ export function registerReadingModeProcessor(plugin: MultilingualNotesPlugin): v
         owner?.querySelector(".ml-lang-header")?.remove();
       }
 
-      // 2. Lifecycle Component: Solves rendering bugs triggered by async chunk scrolling.
-      // Obsidian frequently invokes post-processors while `el` is a detached fragment.
-      // We bind via an asynchronous RequestAnimationFrame queue to guarantee visibility
-      // is locked EXACTLY when `el` is surgically attached to the WorkspaceLeaf DOM.
       const child = new MarkdownRenderChild(el);
       const queueItem = {
         el,
         evaluate: () => {
           const mountedActive = plugin.getLanguageForElement(el, ctx.sourcePath);
-          // Always re-evaluate when:
-          //   a) the initial determination was a detached guess (not definitive), OR
-          //   b) the language changed between initial render and mount.
-          // This guarantees that detached elements in a split view are always
-          // corrected to their owning leaf's language, even if the initial guess
-          // happened to produce the same code as the wrong leaf.
           if (!initialDefinitive || mountedActive !== initialActive) {
             evaluateVisibility(mountedActive);
           }
-          // Always refresh the header once genuinely attached to the Leaf.
           if (blocks.length > 0 && showLangHeader) {
             ensureLangHeader(el, blocks, plugin, mountedActive);
           } else {
@@ -318,17 +255,11 @@ export function registerReadingModeProcessor(plugin: MultilingualNotesPlugin): v
 
       ctx.addChild(child);
     },
-    // Priority 100 — run after most other processors.
     100
   );
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/**
- * Remove rendered close-marker text from mixed-content elements.
- * Handles paragraphs, blockquotes, headings, list items, and table cells.
- */
+/** Remove rendered close-marker text from mixed-content elements. */
 function removeCloseMarkerFromElement(el: HTMLElement): void {
   const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
   const toRemove: Node[] = [];
@@ -355,18 +286,12 @@ function removeCloseMarkerFromElement(el: HTMLElement): void {
     }
   }
 
-  // Hide the wrapper if removing the marker leaves no visible text.
   if (el.textContent?.trim() === "") {
     el.classList.add("ml-language-hidden");
   }
 }
 
-
-
-/**
- * Inject a language-selector bar at the top of the note's sizer container.
- * Uses a data attribute to guarantee it is injected only once per render pass.
- */
+/** Inject a language-selector pill bar at the top of the preview sizer. */
 function ensureLangHeader(
   el: HTMLElement,
   blocks: LangBlock[],
@@ -374,14 +299,8 @@ function ensureLangHeader(
   active: string,
 ): void {
   const owner = el.closest(".markdown-preview-sizer");
-  if (!owner) {
-    // We are running inside a detached document fragment. 
-    // Do not inject headers blindly into random paragraphs! 
-    // The `MarkdownRenderChild.onload` logic will safely inject it later.
-    return;
-  }
+  if (!owner) return; // detached fragment — onload will retry
 
-  // Collect unique language codes present in this document, expanding "ALL" appropriately.
   const langCodes = extractAvailableLanguagesFromBlocks(blocks, plugin.settings.languages);
 
   const existing = owner.querySelector(".ml-lang-header");
@@ -390,9 +309,7 @@ function ensureLangHeader(
     return;
   }
 
-
   if (existing) {
-    // Check if languages match. If so, just update active states.
     const pills = Array.from(existing.querySelectorAll(".ml-lang-pill"));
     const existingCodes = new Set(pills.map(p => p.getAttribute("data-lang")).filter(Boolean) as string[]);
 
@@ -402,16 +319,11 @@ function ensureLangHeader(
     let match = existingCodes.size === expectedCodes.size;
     if (match) {
       for (const code of expectedCodes) {
-        if (!existingCodes.has(code)) {
-          match = false;
-          break;
-        }
+        if (!existingCodes.has(code)) { match = false; break; }
       }
     }
 
     if (match) {
-      // Only toggle active class — never reposition an already-placed header,
-      // because any DOM move triggers a layout reflow that shows as jitter.
       pills.forEach((pill) => {
         const code = pill.getAttribute("data-lang");
         if (!code) return;
@@ -442,35 +354,24 @@ function ensureLangHeader(
     }
   };
 
-  // ALL pill — always present when there are multiple language codes.
   if (langCodes.size > 1) {
-    header.appendChild(
-      createHeaderPill("ALL", "ALL", active === "ALL", onSwitch),
-    );
+    header.appendChild(createHeaderPill("ALL", "ALL", active === "ALL", onSwitch));
   }
 
-  // One pill per language found in the document.
   for (const code of langCodes) {
     const lang = plugin.settings.languages.find(
       (l) => l.code.toLowerCase() === code.toLowerCase(),
     );
     const label = lang ? lang.label : code;
     const isActive = active !== "ALL" && active.toLowerCase() === code.toLowerCase();
-    header.appendChild(
-      createHeaderPill(code, label, isActive, onSwitch),
-    );
+    header.appendChild(createHeaderPill(code, label, isActive, onSwitch));
   }
 
   positionHeader(header, owner);
 }
 
 function positionHeader(header: HTMLElement, owner: Element): void {
-  // Strategy A: insert directly BEFORE the metadata/properties section.
-  // This reliably lands the bar between the inline title and the properties panel
-  // regardless of whether the panel is collapsed or expanded.
-  // NOTE: .mod-header is intentionally excluded from the title selector because
-  // it also matches headings INSIDE the expanded metadata panel, which would put
-  // the bar at the wrong position when properties are expanded.
+  // Prefer inserting before the metadata/properties section.
   const meta = owner.querySelector(".metadata-container, .frontmatter-container");
   if (meta) {
     const metaSection = meta.closest(".markdown-preview-section");
@@ -482,7 +383,7 @@ function positionHeader(header: HTMLElement, owner: Element): void {
     }
   }
 
-  // Strategy B: no properties panel — insert after the inline-title section.
+  // Fall back to after the inline-title section.
   const title = owner.querySelector(".inline-title");
   if (title) {
     const section = title.closest(".markdown-preview-section");
@@ -493,7 +394,7 @@ function positionHeader(header: HTMLElement, owner: Element): void {
     return;
   }
 
-  // Strategy C: neither element found — prepend to top of the sizer.
+  // Last resort: prepend.
   if (owner.firstElementChild !== header) {
     owner.prepend(header);
   }

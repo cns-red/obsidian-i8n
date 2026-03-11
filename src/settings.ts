@@ -2,38 +2,27 @@ import { App, PluginSettingTab, Setting, Notice } from "obsidian";
 import type MultilingualNotesPlugin from "../main";
 import { t } from "./i18n";
 
-// ─── Data structures ───────────────────────────────────────────────────────
-
 export interface LanguageEntry {
-  code: string;   // e.g. "zh-CN"
-  label: string;  // e.g. "简体中文"
+  code: string;
+  label: string;
 }
 
 export interface MultilingualNotesSettings {
-  /** Currently active language code, or "ALL" to show everything */
   activeLanguage: string;
-  /** Ordered list of languages the user has configured */
   languages: LanguageEntry[];
-  /** Language code to use when a note is opened fresh */
   defaultLanguage: string;
-  /** Whether editing mode hides or just dims other-language blocks */
   hideInEditor: boolean;
-  /** Show language selector bar at top of multilingual notes in reading mode */
   showLangHeader: boolean;
-  /** Show the ribbon icon button in the left sidebar */
   showRibbon: boolean;
-  /** Show the active-language indicator in the bottom status bar */
   showStatusBar: boolean;
-
-  // ─── AI Translation ─────────────────────────────────────────────────────────
-  /** OpenAI-compatible API base URL */
   aiApiBase: string;
-  /** API Key for the AI service */
   aiApiKey: string;
-  /** AI Model to use for translation */
   aiModel: string;
-  /** System prompt for the translation task */
   aiSystemPrompt: string;
+  /** Vault-relative folder paths. Empty = plugin works everywhere. */
+  workDirs: string[];
+  /** Vault-relative folder paths. Plugin is fully disabled inside these. */
+  excludeDirs: string[];
 }
 
 export const DEFAULT_SETTINGS: MultilingualNotesSettings = {
@@ -54,14 +43,14 @@ export const DEFAULT_SETTINGS: MultilingualNotesSettings = {
   aiApiKey: "",
   aiModel: "gpt-4o-mini",
   aiSystemPrompt: "You are an expert translator. Translate the provided Markdown text into the target language. Output ONLY the translated text, block for block, preserving all Markdown formatting, frontmatter, and code blocks exactly. Do not add any conversational filler or explain your translation.",
+  workDirs: [],
+  excludeDirs: [],
 };
-
-// ─── Syntax examples ────────────────────────────────────────────────────────
 
 export const SYNTAX_EXAMPLES = [
   {
     titleKey: "settings.syntax.default_title",
-    open: ":::lang zh-CN",
+    open: ":::li8n zh-CN",
     close: ":::",
     noteKey: "settings.syntax.default_note",
   },
@@ -73,19 +62,17 @@ export const SYNTAX_EXAMPLES = [
   },
   {
     titleKey: "settings.syntax.comment_title",
-    open: "[//]: # (lang zh-CN)",
-    close: "[//]: # ()",
+    open: "[//]: # (li8n zh-CN)",
+    close: "[//]: # (endli8n)",
     noteKey: "settings.syntax.comment_note",
   },
   {
     titleKey: "settings.syntax.obsidian_comment_title",
-    open: "%% lang zh-CN %%",
-    close: "%% end %%",
+    open: "%% li8n zh-CN %%",
+    close: "%% endli8n %%",
     noteKey: "settings.syntax.obsidian_comment_note",
   },
 ] as const;
-
-// ─── Settings Tab ──────────────────────────────────────────────────────────
 
 export class MultilingualNotesSettingTab extends PluginSettingTab {
   plugin: MultilingualNotesPlugin;
@@ -286,6 +273,35 @@ export class MultilingualNotesSettingTab extends PluginSettingTab {
       tipTitle.createEl("strong", { text: " " + t("settings.no_marker_title_short") });
       tip.createEl("p", { text: t("settings.no_marker_desc"), cls: "ml-settings-tip-body" });
     });
+
+    // ══ Section 5: Scope ══════════════════════════════════════════════════
+    this.section(containerEl, "🗂️", t("settings.section_scope"), t("settings.section_scope_desc"), (body) => {
+      this.renderScopeGroup(body, t("settings.scope_work_dirs_name"), t("settings.scope_work_dirs_hint"), "workDirs");
+      this.renderScopeGroup(body, t("settings.scope_excl_dirs_name"), t("settings.scope_excl_dirs_hint"), "excludeDirs");
+    });
+
+    // ══ Footer ══════════════════════════════════════════════════════════════
+    const footer = containerEl.createDiv("ml-settings-footer");
+
+    const brand = footer.createDiv("ml-settings-footer-brand");
+    brand.createEl("p", {
+      text: "li8n · local Introduction",
+      cls: "ml-settings-footer-tagline",
+    });
+
+    const links = footer.createDiv("ml-settings-footer-links");
+
+    const makeLink = (label: string, href: string) => {
+      const a = links.createEl("a", { text: label, href, cls: "ml-settings-footer-link" });
+      a.target = "_blank";
+      a.rel = "noopener";
+    };
+
+    makeLink("Author's blog", "https://log.cns.red");
+    links.createSpan({ text: "·", cls: "ml-settings-footer-sep" });
+    makeLink("GitHub · cns-red/obsidian-li8n", "https://github.com/cns-red/obsidian-li8n");
+    links.createSpan({ text: "·", cls: "ml-settings-footer-sep" });
+    makeLink("中国仓库 · china.ai/obsidian/li8n", "https://cnb.cool/china.ai/obsidian/li8n");
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
@@ -356,8 +372,8 @@ export class MultilingualNotesSettingTab extends PluginSettingTab {
 
       // Tab switching
       tab.addEventListener("click", () => {
-        tabBar.querySelectorAll(".ml-syntax-tab").forEach(t => t.classList.remove("ml-syntax-tab--active"));
-        paneArea.querySelectorAll(".ml-syntax-pane").forEach(p => p.classList.remove("ml-syntax-pane--visible"));
+        tabBar.querySelectorAll(".ml-syntax-tab").forEach(el => el.classList.remove("ml-syntax-tab--active"));
+        paneArea.querySelectorAll(".ml-syntax-pane").forEach(el => el.classList.remove("ml-syntax-pane--visible"));
         tab.classList.add("ml-syntax-tab--active");
         pane.classList.add("ml-syntax-pane--visible");
       });
@@ -414,6 +430,75 @@ export class MultilingualNotesSettingTab extends PluginSettingTab {
             });
         });
       row.setName(t("settings.language_row", { index: index + 1 }));
+    });
+  }
+
+  private renderScopeGroup(
+    body: HTMLElement,
+    title: string,
+    hint: string,
+    field: "workDirs" | "excludeDirs",
+  ): void {
+    const group = body.createDiv("ml-scope-group");
+
+    const header = group.createDiv("ml-scope-group-header");
+    header.createEl("strong", { text: title });
+    header.createEl("span", { text: hint, cls: "ml-scope-group-hint" });
+
+    const listEl = group.createDiv("ml-scope-list");
+    this.renderDirList(listEl, field);
+
+    const addRow = group.createDiv("ml-settings-add-row");
+    const addBtn = addRow.createEl("button", {
+      text: t("settings.scope_add_dir"),
+      cls: "ml-settings-add-btn",
+    });
+    addBtn.addEventListener("click", () => {
+      this.plugin.settings[field].push("");
+      this.plugin.saveSettings().then(() => this.renderDirList(listEl, field));
+    });
+  }
+
+  private renderDirList(container: HTMLElement, field: "workDirs" | "excludeDirs"): void {
+    container.empty();
+    const dirs = this.plugin.settings[field];
+
+    if (dirs.length === 0) {
+      if (field === "workDirs") {
+        container.createDiv({
+          text: t("settings.scope_all_files"),
+          cls: "ml-scope-empty-hint",
+        });
+      }
+      return;
+    }
+
+    dirs.forEach((dir, index) => {
+      const row = new Setting(container)
+        .addText((text) => {
+          text
+            .setPlaceholder(t("settings.scope_dir_placeholder"))
+            .setValue(dir)
+            .onChange(async (value) => {
+              this.plugin.settings[field][index] = value.trim().replace(/\/+$/, "");
+              await this.plugin.saveSettings();
+            });
+          text.inputEl.style.width = "260px";
+          text.inputEl.setAttribute("spellcheck", "false");
+          text.inputEl.style.fontFamily = "var(--font-monospace)";
+        })
+        .addButton((btn) => {
+          btn
+            .setIcon("trash")
+            .setTooltip(t("settings.scope_remove_dir_tooltip"))
+            .setClass("mod-warning")
+            .onClick(async () => {
+              this.plugin.settings[field].splice(index, 1);
+              await this.plugin.saveSettings();
+              this.renderDirList(container, field);
+            });
+        });
+      row.setName(t("settings.scope_dir_row", { index: index + 1 }));
     });
   }
 }

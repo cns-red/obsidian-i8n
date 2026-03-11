@@ -1,7 +1,7 @@
 {
   "id": "li8n",
   "name": "li8n",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "minAppVersion": "1.4.0",
   "description": "Write multiple language versions of the same content in a single Markdown file, then switch the visible language globally.",
   "author": "J.K.",

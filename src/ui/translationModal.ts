@@ -1,11 +1,15 @@
-import { App, Modal, Notice, ButtonComponent, MarkdownRenderer } from "obsidian";
-import MultilingualNotesPlugin from "../../main";
+import { App, Component, Modal, Notice, ButtonComponent, MarkdownRenderer, setIcon } from "obsidian";
+import type { MultilingualNotesSettings, LanguageEntry } from "../settings";
 import { t } from "../i18n";
 import { streamTranslation } from "../api/ai";
-import { LanguageEntry } from "../settings";
+
+interface TranslationPlugin {
+    settings: MultilingualNotesSettings;
+    extractLanguageContent(source: string, targetLangCode: string): string;
+}
 
 export class TranslationModal extends Modal {
-    private plugin: MultilingualNotesPlugin;
+    private plugin: TranslationPlugin;
     private sourceContent: string;
     private sourceLanguage: string;
     private targetLanguage: string;
@@ -21,12 +25,13 @@ export class TranslationModal extends Modal {
     private translatedContent: string = "";
     private isStreaming: boolean = false;
     private isEditMode: boolean = false;
+    private abortController: AbortController | null = null;
 
     public onInsertCallback: ((text: string, targetLangCode: string) => void) | null = null;
 
     constructor(
         app: App,
-        plugin: MultilingualNotesPlugin,
+        plugin: TranslationPlugin,
         sourceContent: string,
         activeEditorLangCode: string,
         existingLanguages: Set<string>
@@ -53,7 +58,7 @@ export class TranslationModal extends Modal {
         }
     }
 
-    onOpen() {
+    onOpen(): void {
         const { contentEl } = this;
         contentEl.empty();
 
@@ -75,7 +80,7 @@ export class TranslationModal extends Modal {
 
         // Source language
         const srcGroup = langRow.createDiv("ml-tr-lang-group");
-        srcGroup.createEl("span", { text: t("settings.source_language") || "Source Language", cls: "ml-tr-lang-label" });
+        srcGroup.createEl("span", { text: t("settings.source_language"), cls: "ml-tr-lang-label" });
         const srcSelect = srcGroup.createEl("select", { cls: "ml-tr-select" });
 
         const sourceLangs = this.plugin.settings.languages.filter(
@@ -96,7 +101,7 @@ export class TranslationModal extends Modal {
 
         // Target language
         const tgtGroup = langRow.createDiv("ml-tr-lang-group");
-        tgtGroup.createEl("span", { text: t("settings.target_language") || "Target Language", cls: "ml-tr-lang-label" });
+        tgtGroup.createEl("span", { text: t("settings.target_language"), cls: "ml-tr-lang-label" });
         const tgtSelect = tgtGroup.createEl("select", { cls: "ml-tr-select" });
 
         const targetLangs = this.plugin.settings.languages.filter(
@@ -104,7 +109,7 @@ export class TranslationModal extends Modal {
         );
         if (targetLangs.length === 0) {
             tgtSelect.createEl("option", {
-                text: t("notice.fully_internationalized") || "All languages covered",
+                text: t("notice.fully_internationalized"),
                 value: "",
             });
         } else {
@@ -121,9 +126,9 @@ export class TranslationModal extends Modal {
         // Generate button
         const btnWrap = langRow.createDiv("ml-tr-btn-wrap");
         this.generateBtn = new ButtonComponent(btnWrap)
-            .setButtonText(t("button.translate") || "Translate")
+            .setButtonText(t("button.translate"))
             .setCta()
-            .onClick(() => this.runStreamTranslation());
+            .onClick(() => { void this.runStreamTranslation(); });
         this.generateBtn.buttonEl.addClass("ml-tr-generate-btn");
         this.updateGenerateBtnState();
 
@@ -133,14 +138,14 @@ export class TranslationModal extends Modal {
         // Left: Source
         const srcPanel = split.createDiv("ml-tr-panel");
         const srcHead = srcPanel.createDiv("ml-tr-panel-head");
-        srcHead.createEl("span", { text: t("label.source_text") || "Source", cls: "ml-tr-panel-label" });
+        srcHead.createEl("span", { text: t("label.source_text"), cls: "ml-tr-panel-label" });
         this.sourceRenderEl = srcPanel.createDiv("ml-tr-panel-body ml-tr-preview");
         this.updateSourcePreview();
 
         // Right: Translation
         const tgtPanel = split.createDiv("ml-tr-panel");
         const tgtHead = tgtPanel.createDiv("ml-tr-panel-head");
-        tgtHead.createEl("span", { text: t("label.translation") || "Translation", cls: "ml-tr-panel-label" });
+        tgtHead.createEl("span", { text: t("label.translation"), cls: "ml-tr-panel-label" });
 
         // Edit/preview toggle
         const editBtn = tgtHead.createEl("button", { cls: "ml-tr-icon-btn", attr: { title: t("tooltip.edit_translation") } });
@@ -155,11 +160,9 @@ export class TranslationModal extends Modal {
         this.previewRenderEl = tgtBody.createDiv("ml-tr-preview");
         this.renderTranslation();
 
-        this.previewTextArea = tgtBody.createEl("textarea", { cls: "ml-tr-textarea" });
-        this.previewTextArea.placeholder = t("placeholder.translation_preview") ||
-            "Click Translate to generate. You can edit the result before inserting.";
+        this.previewTextArea = tgtBody.createEl("textarea", { cls: "ml-tr-textarea ml-tr-hidden" });
+        this.previewTextArea.placeholder = t("placeholder.translation_preview");
         this.previewTextArea.value = this.translatedContent;
-        this.previewTextArea.style.display = "none";
         this.previewTextArea.addEventListener("input", () => {
             this.translatedContent = this.previewTextArea!.value;
             this.renderTranslation();
@@ -170,14 +173,14 @@ export class TranslationModal extends Modal {
         const footer = contentEl.createDiv("ml-tr-footer");
 
         new ButtonComponent(footer)
-            .setButtonText(t("button.cancel") || "Cancel")
+            .setButtonText(t("button.cancel"))
             .onClick(() => {
-                this.isStreaming = false;
+                this.cancelStream();
                 this.close();
             });
 
         this.insertBtn = new ButtonComponent(footer)
-            .setButtonText(t("button.insert") || "Insert")
+            .setButtonText(t("button.insert"))
             .setCta()
             .setDisabled(true)
             .onClick(() => {
@@ -192,27 +195,31 @@ export class TranslationModal extends Modal {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private setEditBtnIcon(el: HTMLElement, editing: boolean) {
+    private cancelStream(): void {
+        this.isStreaming = false;
+        this.abortController?.abort();
+        this.abortController = null;
+    }
+
+    private setEditBtnIcon(el: HTMLElement, editing: boolean): void {
         el.empty();
         if (editing) {
-            // eye icon
-            el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+            setIcon(el, "eye");
             el.setAttribute("data-active", "true");
         } else {
-            // pencil icon
-            el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+            setIcon(el, "pencil");
             el.removeAttribute("data-active");
         }
     }
 
-    private syncViewMode() {
+    private syncViewMode(): void {
         if (!this.previewRenderEl || !this.previewTextArea) return;
         if (this.isEditMode) {
-            this.previewRenderEl.style.display = "none";
-            this.previewTextArea.style.display = "flex";
+            this.previewRenderEl.addClass("ml-tr-hidden");
+            this.previewTextArea.removeClass("ml-tr-hidden");
         } else {
-            this.previewRenderEl.style.display = "block";
-            this.previewTextArea.style.display = "none";
+            this.previewRenderEl.removeClass("ml-tr-hidden");
+            this.previewTextArea.addClass("ml-tr-hidden");
         }
     }
 
@@ -221,46 +228,47 @@ export class TranslationModal extends Modal {
         return match ? content.slice(match[0].length) : content;
     }
 
-    private updateSourcePreview() {
+    private updateSourcePreview(): void {
         if (!this.sourceRenderEl) return;
         this.sourceRenderEl.empty();
         this.extractedSourceContent = this.stripFrontmatter(
             this.plugin.extractLanguageContent(this.sourceContent, this.sourceLanguage)
         );
-        MarkdownRenderer.render(
+        void MarkdownRenderer.render(
             this.app,
             this.extractedSourceContent || "_No source text found for this language._",
-            this.sourceRenderEl, "", this.plugin
+            this.sourceRenderEl, "", this as unknown as Component
         );
     }
 
-    private renderTranslation() {
+    private renderTranslation(): void {
         if (!this.previewRenderEl) return;
         this.previewRenderEl.empty();
-        MarkdownRenderer.render(
+        void MarkdownRenderer.render(
             this.app,
             this.translatedContent || "_Translation will appear here…_",
-            this.previewRenderEl, "", this.plugin
+            this.previewRenderEl, "", this as unknown as Component
         );
     }
 
-    private updateGenerateBtnState() {
+    private updateGenerateBtnState(): void {
         this.generateBtn?.setDisabled(!this.targetLanguage || !this.sourceLanguage || this.isStreaming);
     }
 
-    private updateInsertBtnState() {
+    private updateInsertBtnState(): void {
         this.insertBtn?.setDisabled(!this.translatedContent.trim() || this.isStreaming);
     }
 
-    private async runStreamTranslation() {
+    private async runStreamTranslation(): Promise<void> {
         if (!this.generateBtn || !this.previewTextArea) return;
 
+        this.abortController = new AbortController();
         this.isStreaming = true;
         this.translatedContent = "";
         this.previewTextArea.value = "";
         this.renderTranslation();
 
-        this.generateBtn.setButtonText(t("button.translating") || "Translating…");
+        this.generateBtn.setButtonText(t("button.translating"));
         this.generateBtn.buttonEl.addClass("ml-tr-spinning");
         this.updateGenerateBtnState();
         this.updateInsertBtnState();
@@ -289,19 +297,23 @@ export class TranslationModal extends Modal {
                     this.translatedContent += chunk;
                     window.requestAnimationFrame(() => {
                         this.renderTranslation();
-                        // Auto-scroll to bottom as content streams in
                         if (this.previewRenderEl) {
                             this.previewRenderEl.scrollTop = this.previewRenderEl.scrollHeight;
                         }
                     });
-                }
+                },
+                this.abortController.signal,
             );
-        } catch (err: any) {
-            new Notice(`Error: ${err.message}`);
+        } catch (err) {
+            // AbortError is expected when the user cancels — don't show a notice
+            if (err instanceof Error && err.name === "AbortError") return;
+            const msg = err instanceof Error ? err.message : String(err);
+            new Notice(`Error: ${msg}`);
         } finally {
             this.isStreaming = false;
+            this.abortController = null;
             this.previewRenderEl?.removeClass("ml-tr-streaming");
-            this.generateBtn.setButtonText(t("button.regenerate") || "Regenerate");
+            this.generateBtn.setButtonText(t("button.regenerate"));
             this.generateBtn.buttonEl.removeClass("ml-tr-spinning");
             this.updateGenerateBtnState();
             if (this.previewTextArea) this.previewTextArea.value = this.translatedContent;
@@ -310,13 +322,13 @@ export class TranslationModal extends Modal {
         }
     }
 
-    private doInsert() {
+    private doInsert(): void {
         this.onInsertCallback?.(this.translatedContent, this.targetLanguage);
         this.close();
     }
 
-    onClose() {
-        this.isStreaming = false;
+    onClose(): void {
+        this.cancelStream();
         this.contentEl.empty();
     }
 }

@@ -39,7 +39,7 @@ const ja = {
         keep_one_language: "言語は最低でも一つ必要です。",
     },
     settings: {
-        title: "li8n — 設定",
+        title: "mi18n — 設定",
         active_language_name: "現在のアクティブな言語",
         active_language_desc: "すべてのノートでデフォルト表示される言語。",
         default_language_name: "デフォルト言語",
@@ -81,7 +81,7 @@ const ja = {
         ai_system_prompt_name: "System Prompt",
         ai_system_prompt_desc: "AI に送信される基本命令。",
         section_scope: "スコープ",
-        section_scope_desc: "li8n が有効になるフォルダを制限します。除外フォルダは作業フォルダより優先されます。",
+        section_scope_desc: "mi18n が有効になるフォルダを制限します。除外フォルダは作業フォルダより優先されます。",
         scope_work_dirs_name: "作業ディレクトリ",
         scope_work_dirs_hint: "一覧のフォルダ内のみ有効。空 = 全ファイル。",
         scope_excl_dirs_name: "除外ディレクトリ",

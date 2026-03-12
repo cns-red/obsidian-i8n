@@ -35,7 +35,7 @@ const fr = {
         keep_one_language: "Vous devez conserver au moins une langue.",
     },
     settings: {
-        title: "li8n — Paramètres",
+        title: "mi18n — Paramètres",
         active_language_name: "Langue active",
         active_language_desc: "Langue actuellement affichée sur toutes les notes.",
         default_language_name: "Langue par défaut",
@@ -77,7 +77,7 @@ const fr = {
         ai_system_prompt_name: "System Prompt",
         ai_system_prompt_desc: "Les instructions sous-jacentes envoyées à l'IA.",
         section_scope: "Portée",
-        section_scope_desc: "Restreindre les dossiers du vault où li8n est actif. Les dossiers exclus ont priorité.",
+        section_scope_desc: "Restreindre les dossiers du vault où mi18n est actif. Les dossiers exclus ont priorité.",
         scope_work_dirs_name: "Dossiers de travail",
         scope_work_dirs_hint: "Le plugin n'est actif que dans les dossiers listés. Vide = tous les fichiers.",
         scope_excl_dirs_name: "Dossiers exclus",

@@ -1,9 +1,9 @@
 {
-  "id": "li8n",
-  "name": "li8n",
-  "version": "1.1.1",
+  "id": "mi18n",
+  "name": "Mi18n",
+  "version": "1.2.0",
   "minAppVersion": "1.4.0",
-  "description": "Write multiple language versions of the same content in a single Markdown file, then switch the visible language globally.",
+  "description": "Internationalization for Markdown. Write multiple languages in a single note, then switch the visible language globally.",
   "author": "J.K.",
   "authorUrl": "https://log.cns.red",
   "isDesktopOnly": false

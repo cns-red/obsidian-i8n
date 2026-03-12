@@ -1,13 +1,22 @@
-import { App, Modal, Setting } from "obsidian";
-import type MultilingualNotesPlugin from "../../main";
+import { App, Modal, Setting, WorkspaceLeaf } from "obsidian";
+import type { LanguageEntry } from "../settings";
 import { t } from "../i18n";
+
+interface CompareModalPlugin {
+  settings: { languages: LanguageEntry[] };
+  compareManager: {
+    startOrUpdateComparison(leaf: WorkspaceLeaf, langs: string[]): Promise<void>;
+    endComparison(returnToAll: boolean): void;
+  };
+  getEffectiveLanguageForActiveLeaf(): string;
+}
 
 export class ComparisonModal extends Modal {
     private selectedLanguages = new Set<string>();
 
     constructor(
         app: App,
-        private plugin: MultilingualNotesPlugin,
+        private plugin: CompareModalPlugin,
         defaultSelectedLanguages: Set<string>,
         private availableLanguagesStr: string[]
     ) {
@@ -22,7 +31,7 @@ export class ComparisonModal extends Modal {
         contentEl.empty();
         contentEl.addClass("ml-comparison-modal");
 
-        contentEl.createEl("h2", { text: t("menu.compare_languages") });
+        new Setting(contentEl).setName(t("menu.compare_languages")).setHeading();
 
         contentEl.createEl("p", {
             text: t("menu.compare_languages_desc"),
@@ -44,7 +53,6 @@ export class ComparisonModal extends Modal {
                             this.selectedLanguages.add(lang.code);
                         } else {
                             this.selectedLanguages.delete(lang.code);
-                            // Prevent unselecting all (must have at least one)
                             if (this.selectedLanguages.size === 0) {
                                 this.selectedLanguages.add(lang.code);
                                 toggle.setValue(true);
@@ -58,24 +66,24 @@ export class ComparisonModal extends Modal {
 
         const applyBtn = buttonContainer.createEl("button", { text: t("menu.apply_comparison") });
         applyBtn.addClass("mod-cta");
-        applyBtn.style.marginRight = "10px";
-        applyBtn.onclick = async () => {
-            const primaryLeaf = this.app.workspace.getMostRecentLeaf();
-            if (primaryLeaf) {
-                // Need to implement startComparison in the plugin or via CompareManager
-                await this.plugin.compareManager.startOrUpdateComparison(primaryLeaf, Array.from(this.selectedLanguages));
-            }
-            this.close();
-        };
+        applyBtn.addEventListener("click", () => {
+            void (async () => {
+                const primaryLeaf = this.app.workspace.getMostRecentLeaf();
+                if (primaryLeaf) {
+                    await this.plugin.compareManager.startOrUpdateComparison(primaryLeaf, Array.from(this.selectedLanguages));
+                }
+                this.close();
+            })();
+        });
 
         const resetBtn = buttonContainer.createEl("button", { text: t("menu.return_normal") });
-        resetBtn.onclick = () => {
+        resetBtn.addEventListener("click", () => {
             this.plugin.compareManager.endComparison(true);
             this.close();
-        };
+        });
     }
 
-    onClose() {
+    onClose(): void {
         this.contentEl.empty();
     }
 }

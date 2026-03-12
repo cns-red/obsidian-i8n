@@ -1,23 +1,23 @@
 /** Single source of truth for language-block syntax patterns. */
 
-export const COMMENT_OPEN_PREFIX = "[//]: # (li8n ";
-export const COMMENT_CLOSE_MARKER = "[//]: # (endli8n)";
+export const COMMENT_OPEN_PREFIX = "[//]: # (lang ";
+export const COMMENT_CLOSE_MARKER = "[//]: # (endlang)";
 
 /** Open-marker patterns. Capture group 1 = one or more space-separated language codes. */
 export const OPEN_PATTERNS: RegExp[] = [
-  /^:::\s*li8n\s+([\w-]+(?:\s+[\w-]+)*)\s*$/,
-  /^\{%-?\s*li8n\s+([\w-]+(?:\s+[\w-]+)*)\s*-?%\}$/i,
-  /^\[\/\/\]:\s*#\s*\(li8n\s+([\w-]+(?:\s+[\w-]+)*)\)\s*$/i,
-  /^%%\s*li8n\s+([\w-]+(?:\s+[\w-]+)*)\s*%%$/i,
+  /^:::\s*lang\s+([\w-]+(?:\s+[\w-]+)*)\s*$/,
+  /^\{%-?\s*lang\s+([\w-]+(?:\s+[\w-]+)*)\s*-?%\}$/i,
+  /^\[\/\/\]:\s*#\s*\(lang\s+([\w-]+(?:\s+[\w-]+)*)\)\s*$/i,
+  /^%%\s*lang\s+([\w-]+(?:\s+[\w-]+)*)\s*%%$/i,
 ];
 
 /** Close-marker patterns (canonical + legacy aliases). */
 export const CLOSE_PATTERNS: RegExp[] = [
   /^:::\s*$/,
-  /^\{%-?\s*endli8n\s*-?%\}$/i,
-  /^\[\/\/\]:\s*#\s*\(\s*endli8n\s*\)\s*$/i,
+  /^\{%-?\s*endlang\s*-?%\}$/i,
+  /^\[\/\/\]:\s*#\s*\(\s*endlang\s*\)\s*$/i,
   /^\[\/\/\]:\s*#\s*\(\s*:::\s*\)\s*$/i,
-  /^%%\s*endli8n\s*%%$/i,
+  /^%%\s*endlang\s*%%$/i,
   /^%%\s*:::\s*%%$/i,
 ];
 

@@ -35,7 +35,7 @@ const ko = {
         keep_one_language: "최소 하나의 언어를 유지해야 합니다.",
     },
     settings: {
-        title: "li8n — 설정",
+        title: "mi18n — 설정",
         active_language_name: "현재 활성 언어",
         active_language_desc: "모든 노트에 기본으로 표시되는 언어입니다.",
         default_language_name: "기본 언어",
@@ -74,7 +74,7 @@ const ko = {
         ai_system_prompt_name: "System Prompt",
         ai_system_prompt_desc: "AI에게 전송되는 기본 명령입니다.",
         section_scope: "범위",
-        section_scope_desc: "li8n이 활성화될 vault 폴더를 제한합니다. 제외 폴더는 작업 폴더보다 우선합니다.",
+        section_scope_desc: "mi18n이 활성화될 vault 폴더를 제한합니다. 제외 폴더는 작업 폴더보다 우선합니다.",
         scope_work_dirs_name: "작업 디렉토리",
         scope_work_dirs_hint: "목록된 폴더 내에서만 활성화됩니다. 비어있으면 = 모든 파일.",
         scope_excl_dirs_name: "제외 디렉토리",

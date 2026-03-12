@@ -1,5 +1,13 @@
 import { App, MarkdownView, WorkspaceLeaf } from "obsidian";
-import type MultilingualNotesPlugin from "../main";
+
+interface ComparePlugin {
+    app: App;
+    leafLanguageOverrides: WeakMap<WorkspaceLeaf, { code: string; filePath: string }>;
+    spawningLanguage: string | null;
+    settings: { languages: Array<{ code: string; label: string }> };
+    getEffectiveLanguageForLeaf(leaf: WorkspaceLeaf): string;
+    setLanguageForSpecificLeaf(leaf: WorkspaceLeaf, code: string): void;
+}
 
 export class CompareManager {
     private activeComparisonLeaves = new Set<WorkspaceLeaf>();
@@ -8,7 +16,7 @@ export class CompareManager {
     /** True while constructing splits; suppresses layout-change → refreshAllViews() bursts. */
     public isSettingUp = false;
 
-    constructor(private app: App, private plugin: MultilingualNotesPlugin) { }
+    constructor(private app: App, private plugin: ComparePlugin) { }
 
     public isComparisonLeaf(leaf: WorkspaceLeaf): boolean {
         return this.activeComparisonLeaves.has(leaf);
@@ -39,7 +47,7 @@ export class CompareManager {
             this.activeComparisonLeaves.add(actualPrimary);
 
             if (selectedLangs.length === 1) {
-                await this.plugin.setLanguageForSpecificLeaf(actualPrimary, selectedLangs[0]);
+                this.plugin.setLanguageForSpecificLeaf(actualPrimary, selectedLangs[0]);
                 return;
             }
 
@@ -49,7 +57,7 @@ export class CompareManager {
                 await actualPrimary.setViewState(primaryViewState);
             }
 
-            await this.plugin.setLanguageForSpecificLeaf(actualPrimary, selectedLangs[0]);
+            this.plugin.setLanguageForSpecificLeaf(actualPrimary, selectedLangs[0]);
 
             for (let i = 1; i < selectedLangs.length; i++) {
                 const lang = selectedLangs[i];
@@ -83,7 +91,7 @@ export class CompareManager {
 
         if (returnToAllMode && primaryLeaf) {
             this.plugin.setLanguageForSpecificLeaf(primaryLeaf, this.preComparisonLanguage ?? "ALL");
-            this.app.workspace.setActiveLeaf(primaryLeaf, { focus: true });
+        this.app.workspace.setActiveLeaf(primaryLeaf, { focus: true });
         }
     }
 

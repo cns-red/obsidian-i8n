@@ -35,7 +35,7 @@ const ru = {
         keep_one_language: "Необходимо оставить хотя бы один язык.",
     },
     settings: {
-        title: "li8n — Настройки",
+        title: "mi18n — Настройки",
         active_language_name: "Активный язык",
         active_language_desc: "Язык, который отображается сейчас.",
         default_language_name: "Язык по умолчанию",
@@ -77,7 +77,7 @@ const ru = {
         ai_system_prompt_name: "System Prompt",
         ai_system_prompt_desc: "Системные инструкции для ИИ.",
         section_scope: "Область",
-        section_scope_desc: "Ограничьте папки хранилища, в которых работает li8n. Исключённые папки имеют приоритет.",
+        section_scope_desc: "Ограничьте папки хранилища, в которых работает mi18n. Исключённые папки имеют приоритет.",
         scope_work_dirs_name: "Рабочие папки",
         scope_work_dirs_hint: "Плагин работает только в указанных папках. Пусто = все файлы.",
         scope_excl_dirs_name: "Исключённые папки",

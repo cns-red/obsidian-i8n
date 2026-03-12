@@ -28,29 +28,17 @@ export function buildStatusBar(
   const label = wrapper.createSpan("ml-status-label");
   label.textContent = getActiveLabel(settings, activeLanguage);
   label.setAttribute("title", t("status_bar.click_to_switch"));
-  
-  wrapper.style.cursor = "pointer";
-  wrapper.style.display = "flex";
-  wrapper.style.alignItems = "center";
-  wrapper.style.gap = "4px";
   wrapper.onclick = onLanguageClick;
 
   const compareBtn = statusBarEl.createDiv("ml-status-compare-btn");
   setIcon(compareBtn, "flip-horizontal-2");
   compareBtn.setAttribute("title", t("menu.compare_languages"));
-  compareBtn.style.cursor = "pointer";
-  compareBtn.style.marginLeft = "6px";
-  compareBtn.style.display = "flex";
-  compareBtn.style.alignItems = "center";
   compareBtn.onclick = onCompareClick;
 
   const fullImpl = statusBarEl.createDiv("ml-status-impl");
   setIcon(fullImpl, "keyboard");
   fullImpl.setAttribute("title", t("status_bar.missing_translations"));
-  fullImpl.style.cursor = "pointer";
-  fullImpl.style.marginLeft = "6px";
-  fullImpl.style.display = activeImplTip ? "flex" : "none";
-  fullImpl.style.alignItems = "center";
+  fullImpl.toggleClass("ml-status-impl--hidden", !activeImplTip);
 }
 
 export function showLanguageMenu(
@@ -66,7 +54,7 @@ export function showLanguageMenu(
     item
       .setTitle(t("menu.show_all_languages"))
       .setChecked((currentLeafLanguage || settings.activeLanguage) === "ALL")
-      .onClick(async () => onSetActiveLanguage("ALL"));
+      .onClick(() => { void onSetActiveLanguage("ALL"); });
   });
 
   menu.addSeparator();
@@ -79,7 +67,7 @@ export function showLanguageMenu(
       item
         .setTitle(lang.label)
         .setChecked((currentLeafLanguage || settings.activeLanguage).toLowerCase() === lang.code.toLowerCase())
-        .onClick(async () => onSetActiveLanguage(lang.code));
+        .onClick(() => { void onSetActiveLanguage(lang.code); });
     });
   }
 

@@ -28,7 +28,7 @@ export function applyOutlineFilter(
   for (const leaf of outlineLeaves) {
     const items = Array.from(leaf.view.containerEl.querySelectorAll<HTMLElement>(".tree-item"));
     items.forEach((item, i) => {
-      item.style.display = i < visible.length && !visible[i] ? "none" : "";
+      item.toggleClass("ml-outline-hidden", i < visible.length && !visible[i]);
     });
   }
 }

@@ -50,26 +50,26 @@ export const DEFAULT_SETTINGS: MultilingualNotesSettings = {
 export const SYNTAX_EXAMPLES = [
   {
     titleKey: "settings.syntax.default_title",
-    open: ":::li8n zh-CN",
+    open: ":::lang zh-CN",
     close: ":::",
     noteKey: "settings.syntax.default_note",
   },
   {
     titleKey: "settings.syntax.hexo_title",
-    open: "{% li8n zh-CN %}",
-    close: "{% endli8n %}",
+    open: "{% lang zh-CN %}",
+    close: "{% endlang %}",
     noteKey: "settings.syntax.hexo_note",
   },
   {
     titleKey: "settings.syntax.comment_title",
-    open: "[//]: # (li8n zh-CN)",
-    close: "[//]: # (endli8n)",
+    open: "[//]: # (lang zh-CN)",
+    close: "[//]: # (endlang)",
     noteKey: "settings.syntax.comment_note",
   },
   {
     titleKey: "settings.syntax.obsidian_comment_title",
-    open: "%% li8n zh-CN %%",
-    close: "%% endli8n %%",
+    open: "%% lang zh-CN %%",
+    close: "%% endlang %%",
     noteKey: "settings.syntax.obsidian_comment_note",
   },
 ] as const;
@@ -91,7 +91,7 @@ export class MultilingualNotesSettingTab extends PluginSettingTab {
     const masthead = containerEl.createDiv("ml-settings-masthead");
     masthead.createEl("div", { cls: "ml-settings-masthead-icon", text: "" });
     const mastheadText = masthead.createDiv("ml-settings-masthead-text");
-    mastheadText.createEl("h2", { text: "Multilingual Notes · li8n" });
+    mastheadText.createEl("h2", { text: "Internationalization for Markdown · mi18n" });
     mastheadText.createEl("p", { text: t("settings.plugin_tagline") });
 
     // ══ Section 1: Language Library ════════════════════════════════════════
@@ -212,7 +212,7 @@ export class MultilingualNotesSettingTab extends PluginSettingTab {
               this.plugin.settings.aiApiBase = value.trim() || "https://api.openai.com/v1";
               await this.plugin.saveSettings();
             });
-          text.inputEl.style.width = "260px";
+          text.inputEl.addClass("ml-settings-input-wide");
         });
 
       new Setting(body)
@@ -227,7 +227,7 @@ export class MultilingualNotesSettingTab extends PluginSettingTab {
               await this.plugin.saveSettings();
             });
           text.inputEl.type = "password";
-          text.inputEl.style.width = "260px";
+          text.inputEl.addClass("ml-settings-input-wide");
         });
 
       new Setting(body)
@@ -241,7 +241,7 @@ export class MultilingualNotesSettingTab extends PluginSettingTab {
               this.plugin.settings.aiModel = value.trim() || "gpt-4o-mini";
               await this.plugin.saveSettings();
             });
-          text.inputEl.style.width = "200px";
+          text.inputEl.addClass("ml-settings-input-medium");
         });
 
       new Setting(body)
@@ -256,9 +256,7 @@ export class MultilingualNotesSettingTab extends PluginSettingTab {
               await this.plugin.saveSettings();
             });
           text.inputEl.rows = 5;
-          text.inputEl.style.width = "100%";
-          text.inputEl.style.fontFamily = "var(--font-monospace)";
-          text.inputEl.style.fontSize = "12px";
+          text.inputEl.addClass("ml-settings-input-full ml-settings-input-mono ml-settings-input-small");
         });
     });
 
@@ -285,7 +283,7 @@ export class MultilingualNotesSettingTab extends PluginSettingTab {
 
     const brand = footer.createDiv("ml-settings-footer-brand");
     brand.createEl("p", {
-      text: "li8n · local Introduction",
+      text: "mi18n · Internationalization for Markdown",
       cls: "ml-settings-footer-tagline",
     });
 
@@ -298,10 +296,8 @@ export class MultilingualNotesSettingTab extends PluginSettingTab {
     };
 
     makeLink("Author's blog", "https://log.cns.red");
-    links.createSpan({ text: "·", cls: "ml-settings-footer-sep" });
-    makeLink("GitHub · cns-red/obsidian-li8n", "https://github.com/cns-red/obsidian-li8n");
-    links.createSpan({ text: "·", cls: "ml-settings-footer-sep" });
-    makeLink("中国仓库 · china.ai/obsidian/li8n", "https://cnb.cool/china.ai/obsidian/li8n");
+    links.createSpan({ text: "|", cls: "ml-settings-footer-sep" });
+    makeLink("GitHub · cns-red/obsidian-mi18n", "https://github.com/cns-red/obsidian-mi18n");
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
@@ -322,14 +318,18 @@ export class MultilingualNotesSettingTab extends PluginSettingTab {
     const header = card.createDiv("ml-settings-section-header");
     const titleRow = header.createDiv("ml-settings-section-title-row");
     const titleIcon = titleRow.createDiv("ml-settings-section-title-icon");
-    setIcon(titleIcon, iconId)
-    titleRow.createEl("h3", { text: title, cls: "ml-settings-section-heading" });
+    setIcon(titleIcon, iconId);
+    titleRow.createEl("div", { text: title, cls: "ml-settings-section-heading" });
     if (desc) {
       header.createEl("p", { text: desc, cls: "ml-settings-section-desc" });
     }
 
     const body = card.createDiv("ml-settings-section-body");
-    fill(body);
+    try {
+      fill(body);
+    } catch (err) {
+      console.error("[mi18n] Error rendering section:", title, err);
+    }
   }
 
   /**
@@ -384,7 +384,7 @@ export class MultilingualNotesSettingTab extends PluginSettingTab {
               await this.plugin.saveSettings();
               this.plugin.refreshStatusBar();
             });
-          text.inputEl.style.width = "90px";
+          text.inputEl.addClass("ml-settings-input-code");
           text.inputEl.setAttribute("spellcheck", "false");
         })
         .addText((text) => {
@@ -396,7 +396,7 @@ export class MultilingualNotesSettingTab extends PluginSettingTab {
               await this.plugin.saveSettings();
               this.plugin.refreshStatusBar();
             });
-          text.inputEl.style.width = "130px";
+          text.inputEl.addClass("ml-settings-input-label");
         })
         .addButton((btn) => {
           btn
@@ -473,9 +473,8 @@ export class MultilingualNotesSettingTab extends PluginSettingTab {
               this.plugin.settings[field][index] = value.trim().replace(/\/+$/, "");
               await this.plugin.saveSettings();
             });
-          text.inputEl.style.width = "260px";
+          text.inputEl.addClass("ml-settings-input-wide ml-settings-input-mono");
           text.inputEl.setAttribute("spellcheck", "false");
-          text.inputEl.style.fontFamily = "var(--font-monospace)";
         })
         .addButton((btn) => {
           btn

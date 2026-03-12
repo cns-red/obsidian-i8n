@@ -35,7 +35,7 @@ const hi = {
         keep_one_language: "कम से कम एक भाषा रखना अनिवार्य है।",
     },
     settings: {
-        title: "li8n — सेटिंग्स",
+        title: "mi18n — सेटिंग्स",
         active_language_name: "सक्रिय भाषा",
         active_language_desc: "वह भाषा जो वर्तमान में सभी नोट्स में दिखाई जाती है।",
         default_language_name: "डिफ़ॉल्ट भाषा",
@@ -77,7 +77,7 @@ const hi = {
         ai_system_prompt_name: "System Prompt",
         ai_system_prompt_desc: "AI को भेजे जाने वाले सिस्टम निर्देश।",
         section_scope: "कार्यक्षेत्र",
-        section_scope_desc: "वे फ़ोल्डर सीमित करें जहाँ li8n सक्रिय होता है। बाहर किए गए फ़ोल्डर को प्राथमिकता दी जाती है।",
+        section_scope_desc: "वे फ़ोल्डर सीमित करें जहाँ mi18n सक्रिय होता है। बाहर किए गए फ़ोल्डर को प्राथमिकता दी जाती है।",
         scope_work_dirs_name: "कार्यशील डायरेक्टरी",
         scope_work_dirs_hint: "केवल सूचीबद्ध फ़ोल्डर में सक्रिय। खाली = सभी फ़ाइलें।",
         scope_excl_dirs_name: "बाहर की गई डायरेक्टरी",

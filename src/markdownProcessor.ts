@@ -143,7 +143,7 @@ export function registerReadingModeProcessor(plugin: MultilingualNotesPlugin): v
     (el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
       if (!plugin.isFileInScope(ctx.sourcePath)) return;
       const selfFile = plugin.app.vault.getFileByPath(ctx.sourcePath);
-      if (selfFile && plugin.app.metadataCache.getFileCache(selfFile)?.frontmatter?.li8n_ignore === true) return;
+      if (selfFile && plugin.app.metadataCache.getFileCache(selfFile)?.frontmatter?.lang_ignore === true) return;
       const info = ctx.getSectionInfo(el);
       if (!info) return;
 
@@ -172,7 +172,6 @@ export function registerReadingModeProcessor(plugin: MultilingualNotesPlugin): v
           }
         };
       } else {
-        let foundBlock = false;
         for (const block of blocks) {
           if (lineStart === block.openLine) {
             evaluateVisibility = (active: string) => {
@@ -185,14 +184,14 @@ export function registerReadingModeProcessor(plugin: MultilingualNotesPlugin): v
               }
               el.classList.add("ml-language-hidden");
             };
-            foundBlock = true; break;
+            break;
           }
 
           if (block.closeLine >= 0 && lineStart === block.closeLine) {
             evaluateVisibility = (active: string) => {
               if (block.closeVisible) el.classList.add("ml-language-hidden");
             };
-            foundBlock = true; break;
+            break;
           }
 
           const afterOpen = lineStart > block.openLine;
@@ -209,7 +208,7 @@ export function registerReadingModeProcessor(plugin: MultilingualNotesPlugin): v
                 }
               }
             };
-            foundBlock = true; break;
+            break;
           }
         }
       }

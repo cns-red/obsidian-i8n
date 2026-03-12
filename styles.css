@@ -2,6 +2,11 @@
    Multilingual Notes Plugin — styles.css
    ========================================================================= */
 
+/* ── General utility ──────────────────────────────────────────────────── */
+.ml-hidden {
+  display: none !important;
+}
+
 /* ── Status bar widget ────────────────────────────────────────────────── */
 .ml-status-bar {
   cursor: pointer;
@@ -19,8 +24,13 @@
   align-items: center;
   cursor: pointer;
   padding: 2px;
+  margin-left: 6px;
   transition: background-color 0.15s ease;
   color: var(--text-warning);
+}
+
+.ml-status-impl--hidden {
+  display: none;
 }
 
 .ml-status-wrapper {
@@ -41,6 +51,7 @@
   align-items: center;
   cursor: pointer;
   padding: 2px;
+  margin-left: 6px;
   transition: background-color 0.15s ease;
   color: var(--text-muted);
 }
@@ -762,6 +773,11 @@
   box-shadow: none !important;
 }
 
+/* ── Hidden state helper ─────────────────────────────────────────────── */
+.ml-tr-hidden {
+  display: none !important;
+}
+
 /* ── Error state ─────────────────────────────────────────────────────── */
 .ml-tr-error {
   padding: 40px 32px;
@@ -778,6 +794,11 @@
 /* ── Reading mode: hide the language blocks and fence markers ─────────── */
 .ml-language-hidden {
   display: none !important;
+}
+
+/* ── Outline panel: hidden tree items ─────────────────────────────────── */
+.ml-outline-hidden {
+  display: none;
 }
 
 /* ── Comparison UI Modal ─────────────────────────────────────────────── */
@@ -834,11 +855,25 @@
 }
 
 /* ── Hide plugin-managed frontmatter fields in reading mode ────────────── */
-/* li8n and li8n_view are internal bookkeeping fields; no need to show them
+/* lang and lang_view are internal bookkeeping fields; no need to show them
    to readers. They remain fully visible in the editor's Properties panel.  */
-.markdown-preview-view .metadata-property[data-property-key="li8n"],
-.markdown-preview-view .metadata-property[data-property-key="li8n_view"] {
+.markdown-preview-view .metadata-property[data-property-key="lang"],
+.markdown-preview-view .metadata-property[data-property-key="lang_view"] {
   display: none;
+}
+
+/* ── Settings input width/style helpers ───────────────────────────────── */
+.ml-settings-input-wide  { width: 260px; }
+.ml-settings-input-medium { width: 200px; }
+.ml-settings-input-code  { width: 90px; }
+.ml-settings-input-label { width: 130px; }
+.ml-settings-input-full  { width: 100%; }
+.ml-settings-input-mono  { font-family: var(--font-monospace); font-size: 12px; }
+.ml-settings-input-small { font-size: 12px; }
+
+/* ── Comparison modal: button row spacing ──────────────────────────────── */
+.ml-comparison-btn-row button.mod-cta {
+  margin-right: 10px;
 }
 
 /* ── Scope section ─────────────────────────────────────────────────────── */

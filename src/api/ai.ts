@@ -1,10 +1,12 @@
-import type { MultilingualNotesSettings } from "../settings";
+// NOTE: This module intentionally uses the native fetch() API instead of
+// Obsidian's requestUrl(). requestUrl() buffers the entire response before
+// returning and therefore cannot support Server-Sent Events (SSE). Real-time
+// streaming requires a ReadableStream, which only fetch() exposes. The
+// AbortSignal passed by callers ensures the connection is cancelled promptly
+// when the user closes the translation modal, preventing wasted API tokens.
+// This will be documented in the Obsidian community plugin PR submission.
 
-export interface AIResponse {
-    success: boolean;
-    text?: string;
-    error?: string;
-}
+import type { MultilingualNotesSettings } from "../settings";
 
 export async function streamTranslation(
     sourceText: string,
@@ -12,6 +14,7 @@ export async function streamTranslation(
     sourceLangName: string | undefined,
     settings: MultilingualNotesSettings,
     onChunk: (text: string) => void,
+    signal?: AbortSignal,
 ): Promise<void> {
     const { aiApiBase, aiApiKey, aiModel, aiSystemPrompt } = settings;
 
@@ -25,55 +28,60 @@ export async function streamTranslation(
 
     const prompt = `${aiSystemPrompt}\n\nSource language: ${sourceLangName ?? "Auto-detect"}\nTarget language: ${targetLangName}`;
 
-    let response: Response;
-    try {
-        response = await fetch(endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${aiApiKey}` },
-            body: JSON.stringify({
-                model: aiModel,
-                messages: [
-                    { role: "system", content: prompt },
-                    { role: "user", content: sourceText },
-                ],
-                temperature: 0.3,
-                stream: true,
-            }),
-        });
-    } catch (err: any) {
-        throw new Error(`Network error: ${err.message}. If using a local API, ensure CORS is enabled for app://obsidian.md.`);
-    }
+    // eslint-disable-next-line no-restricted-globals
+    const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${aiApiKey}`,
+        },
+        body: JSON.stringify({
+            model: aiModel,
+            messages: [
+                { role: "system", content: prompt },
+                { role: "user", content: sourceText },
+            ],
+            temperature: 0.3,
+            stream: true,
+        }),
+        signal,
+    });
 
     if (!response.ok) {
-        const errText = await response.text().catch(() => "Unknown error");
-        throw new Error(`HTTP ${response.status}: ${errText}`);
+        throw new Error(`HTTP ${response.status}: ${await response.text()}`);
     }
 
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error("Response body is not readable.");
+    if (!response.body) throw new Error("Response body is empty.");
 
-    const decoder = new TextDecoder("utf-8");
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
     let buffer = "";
 
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() ?? "";
 
-        for (const line of lines) {
-            const clean = line.trim();
-            if (!clean.startsWith("data: ")) continue;
-            const data = clean.slice(6);
-            if (data === "[DONE]") return;
-            try {
-                const chunk = JSON.parse(data).choices?.[0]?.delta?.content;
-                if (chunk) onChunk(chunk);
-            } catch {
-                // Malformed SSE chunk — skip
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed === "data: [DONE]") continue;
+                if (!trimmed.startsWith("data: ")) continue;
+                try {
+                    const json = JSON.parse(trimmed.slice(6)) as {
+                        choices?: Array<{ delta?: { content?: string } }>;
+                    };
+                    const delta = json.choices?.[0]?.delta?.content;
+                    if (typeof delta === "string" && delta) onChunk(delta);
+                } catch {
+                    // malformed SSE line — skip
+                }
             }
         }
+    } finally {
+        reader.releaseLock();
     }
 }

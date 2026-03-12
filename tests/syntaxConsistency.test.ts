@@ -5,19 +5,19 @@ import { parseLangBlocks } from "../src/markdownProcessor";
 const cases = [
   {
     name: "fenced",
-    input: ":::li8n zh-CN\nhello\n:::",
+    input: ":::lang zh-CN\nhello\n:::",
   },
   {
     name: "hexo",
-    input: "{% li8n zh-CN %}\nhello\n{% endli8n %}",
+    input: "{% lang zh-CN %}\nhello\n{% endlang %}",
   },
   {
     name: "comment",
-    input: "[//]: # (li8n zh-CN)\nhello\n[//]: # (endli8n)",
+    input: "[//]: # (lang zh-CN)\nhello\n[//]: # (endlang)",
   },
   {
     name: "obsidian-comment",
-    input: "%% li8n zh-CN %%\nhello\n%% endli8n %%",
+    input: "%% lang zh-CN %%\nhello\n%% endlang %%",
   },
 ];
 

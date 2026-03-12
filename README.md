@@ -1,181 +1,185 @@
-# li8n — Multilingual Notes for Obsidian
+# Internationalization for Markdown
 
-**Languages:** [English](README.md) | [简体中文](README.zh-CN.md)
+**Write multiple languages in a single note, then switch the visible language globally.**
 
-Write all language versions of a note in a single Markdown file. Switch the visible language with one click — in Reading mode, Live Preview, and Source mode.
-
----
-
-## Features
-
-- **Single-file multilingual** — keep every translation in one note, no file duplication.
-- **Four equivalent syntaxes** — fenced-div (`:::li8n`), Hexo tag, Markdown comment, Obsidian comment. Mix freely.
-- **Multi-code blocks** — one block can cover several languages: `:::li8n zh-CN en`.
-- **Global language switch** — ribbon button, status bar, command palette, or `Alt+L`.
-- **Per-pane overrides** — each split view can show a different language independently.
-- **Frontmatter override** — set `li8n_view: <code>` (or `lang: <code>`) in a note's frontmatter to lock that file's view language.
-- **Reading-mode pill bar** — a language selector is injected at the top of every multilingual note in Reading mode.
-- **Outline/TOC filtering** — the Outline panel shows only the headings belonging to the active language.
-- **Side-by-side comparison** — open all languages simultaneously in synchronized split panes.
-- **AI translation** — generate a new language block via any OpenAI-compatible streaming API.
-- **Per-language export** — export a language-stripped version of a note as a `.md` file.
-- **Unnested content always visible** — text outside any language block is shown in every language.
+[中文文档](./README.zh-CN.md)
 
 ---
 
-## Installation
+## What it does
 
-**Via BRAT (recommended for beta):**
-1. Install the [BRAT](https://github.com/TfTHacker/obsidian42-brat) community plugin.
-2. Add `https://github.com/cns-red/obsidian-li8n` as a beta plugin.
-
-**Manual:**
-1. Download `main.js`, `manifest.json`, and `styles.css` from the latest release.
-2. Copy them to `<vault>/.obsidian/plugins/li8n/`.
-3. Enable **li8n** in **Settings → Community plugins**.
+mi18n lets you keep every translation of a note in one file, then show only the language you need. Switch languages globally from the ribbon, status bar, or command palette — all open notes update instantly in reading mode, Live Preview, and source mode.
 
 ---
 
-## Syntax
+## Quick start
 
-Four styles are supported and can be mixed within the same note:
+Wrap each language's content in a `lang` block:
 
-```md
-:::li8n zh-CN
-这是中文版本。
+```markdown
+:::lang en
+Hello, world!
 :::
 
-:::li8n en
-This is the English version.
+:::lang zh-CN
+你好，世界！
 :::
 ```
 
-```md
-{% li8n zh-CN %}
-这是中文版本。
-{% endli8n %}
-```
+Click the ribbon icon or the status bar badge to pick a language. Only that language's blocks are visible — everything else is hidden in both reading mode and the editor.
 
-```md
-[//]: # (li8n zh-CN)
-这是中文版本。
-[//]: # (endli8n)
-```
+---
 
-```md
-%% li8n zh-CN %%
-这是中文版本。
-%% endli8n %%
-```
+## Syntax styles
 
-**Multi-language block** — assign the same content to multiple languages at once:
+All four styles are interchangeable — use whichever fits your workflow:
 
-```md
-:::li8n zh-CN zh-TW
-这段内容对简体中文和繁体中文用户都显示。
-:::
-```
+| Style | Open marker | Close marker | Visible in reading mode |
+|---|---|---|---|
+| Fenced div *(default)* | `:::lang zh-CN` | `:::` | Yes |
+| Hexo tag | `{% lang zh-CN %}` | `{% endlang %}` | Yes |
+| Markdown comment | `[//]: # (lang zh-CN)` | `[//]: # (endlang)` | **No** |
+| Obsidian comment | `%% lang zh-CN %%` | `%% endlang %%` | **No** (hidden in Live Preview too) |
+
+**Multi-language blocks** — `:::lang en zh-CN` shows the block when either language is active.
 
 **Rules:**
 - Open and close markers must be on their own line with no leading spaces.
 - Language code matching is case-insensitive (`zh-CN` and `zh-cn` are treated identically).
-- Text outside any block is always visible regardless of the active language.
+- Content outside any block is always visible regardless of the active language.
 - Unclosed blocks extend to the end of the file.
 
 ---
 
-## Switching Languages
+## Frontmatter
 
-| Method | Action |
-|---|---|
-| Status bar | Click the language label |
-| Ribbon | Click the 🌍 ribbon icon |
-| Command palette | `li8n: Switch language` |
-| Keyboard shortcut | `Alt+L` |
-| Reading-mode pill bar | Click any pill at the top of a multilingual note |
-| Outline panel | Click any pill in the outline language bar |
-
-Select **ALL** to show every language simultaneously.
-
----
-
-## Side-by-Side Comparison
-
-Click the split-pane icon in the status bar (or use **Compare languages** from the command palette) to open a comparison modal. Select two or more languages to view them in synchronized split panes — scrolling one pane scrolls all others proportionally.
-
----
-
-## AI Translation
-
-Open a note, place the cursor inside a language block (or anywhere in a note without blocks), then run **li8n: Translate with AI** from the command palette. A modal streams the translation from your configured API and inserts a ready-to-use language block when finished.
-
-Configure the AI under **Settings → li8n → AI Translation**:
-
-| Setting | Description |
-|---|---|
-| API Base URL | Base URL of any OpenAI-compatible endpoint (default: `https://api.openai.com/v1`) |
-| API Key | Your API key (`sk-...`) |
-| Model | Model name, e.g. `gpt-4o-mini` |
-| System Prompt | Translation instruction sent as the system message |
-
----
-
-## Per-Language Export
-
-Right-click any `.md` file in the file explorer → **Multilingual → Export → \<language\>** to download a plain Markdown file containing only that language's content (markers stripped).
-
----
-
-## Frontmatter Overrides
-
-Add to any note's frontmatter to override the global active language for that file:
+mi18n automatically keeps these keys in sync — you rarely need to write them manually:
 
 ```yaml
 ---
-li8n_view: zh-CN   # show only Chinese in this note
+lang: [en, zh-CN, ja]   # languages present in this note (auto-synced on save)
+lang_view: zh-CN         # lock this note to a specific language on every open
+lang_ignore: true        # disable mi18n entirely for this note
 ---
 ```
 
-Use `li8n_view: ALL` to always show all languages in this note regardless of the global setting.
+---
 
-The `lang` key is also accepted as an alias for `li8n_view`.
+## UI controls
+
+### Ribbon button
+Left-sidebar icon. Opens a language picker menu showing all configured languages plus **Show all languages**. Can be hidden in settings.
+
+### Status bar badge
+Bottom-right indicator shows the active language code. A warning dot appears when the current note is missing translations for some configured languages. Click for the full language menu.
+
+Two icon buttons sit beside the badge:
+- **Compare** — opens the language comparison dialog
+- **Language** — same as clicking the badge
+
+### Reading-mode pill bar
+A floating language switcher appears at the top of every multilingual note in reading mode. Click any pill to switch. Includes **ALL** to show every block simultaneously.
+
+### Outline panel integration
+When the Outline panel is open, a language switcher is injected at its top. Headings from inactive language blocks are hidden automatically so the outline stays clean.
+
+---
+
+## Editor context menu
+
+Right-click anywhere in the editor → **Multilingual** submenu:
+
+| Action | Description |
+|---|---|
+| **Wrap** | Wrap the current selection in a lang block for the active language |
+| **Copy →** | Copy a language's full content to the clipboard |
+| **Paste as… →** | Paste clipboard content as a new lang block for a chosen language |
+| **Delete →** | Remove all blocks for a chosen language from the note |
+| **Manual insert →** | Insert an empty lang block for a chosen language at the cursor |
+| **Smart insert** | Auto-detect which languages are missing and insert the next needed block |
+| **Smart AI translate** | Open the AI translation modal |
+
+Hover over **Copy / Paste as / Delete / Manual insert** to reveal a language picker flyout. Languages that already exist in the note are shown as disabled in **Paste as** and **Manual insert**.
+
+---
+
+## File explorer context menu
+
+Right-click any Markdown file in the file explorer → **Multilingual → Export → \<language\>**
+
+Exports that language's content (lang markers stripped) as a standalone `.md` file. If the selected language block is not found, shared content outside any block is exported with a notice.
+
+---
+
+## Commands (Command Palette)
+
+| Command | Description |
+|---|---|
+| `Switch language: <name>` | Switch to a specific language (one command per configured language) |
+| `Switch language: Show all languages` | Show all language blocks simultaneously |
+| `Cycle to next language` | Rotate through configured languages in order |
+| `Insert language block` | Insert an empty lang block at the cursor |
+| `Smart insert language block` | Insert the next missing language block intelligently |
+| `Wrap selection in language block` | Wrap selected text in a lang block |
+| `Smart AI translate` | Open the AI translation modal |
+| `Insert multilingual block template (all languages)` | Insert empty blocks for every configured language |
+
+---
+
+## Language comparison
+
+Opens side-by-side panes showing different languages of the same note with synchronized scrolling.
+
+**To open:** click the compare icon in the status bar → select two or more languages → **Apply split view**. Each pane locks to its language independently. Click **Return to normal mode** to close the comparison session.
+
+---
+
+## AI translation
+
+The **Smart AI translate** modal provides:
+
+| Element | Description |
+|---|---|
+| Source panel | Rendered Markdown preview of the selected source language |
+| Translation panel | Real-time token-by-token streamed output |
+| Edit toggle | Switch the translation panel between rendered preview and raw text editing |
+| Regenerate | Re-run the translation with the same settings |
+| Insert | Append the result as a new lang block in the note |
+
+Closing the modal or clicking **Cancel** immediately aborts the API request — no tokens are wasted mid-generation.
+
+Supports any OpenAI-compatible API: OpenAI, Ollama, OpenRouter, SiliconFlow, and others. Configure under **Settings → AI translation**.
 
 ---
 
 ## Settings
 
-Open **Settings → li8n**:
+Open **Settings → mi18n**:
 
-| Setting | Description |
-|---|---|
-| Language library | Add, remove, or rename language codes and display labels |
-| Active language | Currently visible language across all notes |
-| Default language | Assumed language for notes that have no language blocks |
-| Show language header | Inject a pill selector bar in Reading mode |
-| Hide non-active blocks in editor | Replace inactive blocks with a thin placeholder bar in Live Preview / Source mode |
-| Show status bar | Toggle the language label in the bottom status bar |
-| Show ribbon button | Toggle the 🌍 ribbon icon |
+### Language library
+- **Active language** — the language shown across all notes right now
+- **Default language** — assumed language for notes that have no lang markers (switching away makes those notes invisible)
+- **Configured languages** — add / rename / remove entries; codes must exactly match your markers
 
----
+### Interface
+- **Hide other languages in editor** — collapse inactive blocks to a thin bar in Live Preview / source mode
+- **Show language switcher in reading mode** — toggle the reading-mode pill bar
+- **Show ribbon button** — toggle the left-sidebar icon
+- **Show status bar indicator** — toggle the status bar badge
 
-## Build
+### AI translation
+API Base URL · API Key · Model (e.g. `gpt-4o-mini`) · System prompt
 
-```bash
-git clone https://github.com/cns-red/obsidian-li8n
-cd obsidian-li8n
-npm install
-npm run dev      # watch mode
-npm run build    # production build → main.js
-```
+### Scope
+Restrict mi18n to specific vault folders:
+- **Working directories** — plugin only activates inside listed folders (empty = all files)
+- **Excluded directories** — plugin is fully disabled inside these folders (takes priority over working directories)
 
 ---
 
-## Limitations
+## Notes without lang markers
 
-- Inline multilingual spans (within a sentence) are not supported.
-- Deeply nested Markdown inside language blocks can occasionally be mis-attributed by the post-processor.
-- Language codes are not validated against any ISO standard.
-- Mobile editor block-replacement behavior is best-effort and may differ slightly from desktop.
+A note with no lang markers is treated as written entirely in the **Default Language**. If you switch to a different language, the whole note becomes invisible — intentionally, because there is no translation for that language.
 
 ---
 

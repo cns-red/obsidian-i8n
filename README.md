@@ -2,13 +2,15 @@
 
 **Write multiple languages in a single note, then switch the visible language globally.**
 
-[中文文档](./README.zh-CN.md)
-
+- [中文文档](./README.zh-CN.md)
+- [BiliBili Video](https://www.bilibili.com/video/BV1RrcrzbEox)
 ---
 
 ## What it does
 
 mi18n lets you keep every translation of a note in one file, then show only the language you need. Switch languages globally from the ribbon, status bar, or command palette — all open notes update instantly in reading mode, Live Preview, and source mode.
+
+![pre-1](/examples/images/73873655-8eb9-4b0b-a262-14f91c3b78c9.png)
 
 ---
 
@@ -83,6 +85,8 @@ A floating language switcher appears at the top of every multilingual note in re
 ### Outline panel integration
 When the Outline panel is open, a language switcher is injected at its top. Headings from inactive language blocks are hidden automatically so the outline stays clean.
 
+![ui](/examples/images/3921e8d3-f7e6-4a62-9c8a-38a7594eb1f5.png)
+
 ---
 
 ## Editor context menu
@@ -100,6 +104,8 @@ Right-click anywhere in the editor → **Multilingual** submenu:
 | **Smart AI translate** | Open the AI translation modal |
 
 Hover over **Copy / Paste as / Delete / Manual insert** to reveal a language picker flyout. Languages that already exist in the note are shown as disabled in **Paste as** and **Manual insert**.
+
+![menu](/examples/images/fcb50e9f-a315-411c-b767-bc5b02ecf9ab.png)
 
 ---
 
@@ -149,6 +155,8 @@ The **Smart AI translate** modal provides:
 Closing the modal or clicking **Cancel** immediately aborts the API request — no tokens are wasted mid-generation.
 
 Supports any OpenAI-compatible API: OpenAI, Ollama, OpenRouter, SiliconFlow, and others. Configure under **Settings → AI translation**.
+
+![AI](/examples/images/9d59f904-5c0e-4965-9e71-93f07731cfd4.png)
 
 ---
 

@@ -2,13 +2,16 @@
 
 **在单个笔记中编写多种语言，全局切换可见语言。**
 
-[English](./README.md)
+- [English](./README.md)
+- [BiliBili Video](https://www.bilibili.com/video/BV1RrcrzbEox)
 
 ---
 
 ## 功能简介
 
 mi18n 让你把同一篇笔记的所有语言版本放在一个文件里，然后只显示你当前需要的语言。通过 Ribbon、状态栏或命令面板全局切换语言 —— 所有已打开的笔记在阅读模式、实时预览和源码模式下同步更新。
+
+![pre-1](/examples/images/73873655-8eb9-4b0b-a262-14f91c3b78c9.png)
 
 ---
 
@@ -87,6 +90,8 @@ lang_ignore: true        # 单篇排除, 对此笔记完全禁用 mi18n
 ### 大纲面板集成
 大纲面板打开时，顶部会注入语言切换控件。非激活语言对应的标题会被自动隐藏，保持大纲整洁。
 
+![ui](/examples/images/3921e8d3-f7e6-4a62-9c8a-38a7594eb1f5.png)
+
 ---
 
 ## 编辑器右键菜单
@@ -104,6 +109,8 @@ lang_ignore: true        # 单篇排除, 对此笔记完全禁用 mi18n
 | **Smart AI translate（AI 翻译）** | 打开 AI 翻译对话框 |
 
 悬停在 **复制 / 粘贴为 / 删除 / 手动插入** 上，会弹出语言选择器。**粘贴为**和**手动插入**中已存在的语言会显示为禁用状态。
+
+![menu](/examples/images/fcb50e9f-a315-411c-b767-bc5b02ecf9ab.png)
 
 ---
 
@@ -153,6 +160,8 @@ lang_ignore: true        # 单篇排除, 对此笔记完全禁用 mi18n
 关闭对话框或点击**取消**会立即中止 API 请求 —— 不会浪费任何 token。
 
 支持任意兼容 OpenAI 的 API：OpenAI、Ollama、OpenRouter、SiliconFlow 等。在 **设置 → AI 翻译** 中配置。
+
+![AI](/examples/images/9d59f904-5c0e-4965-9e71-93f07731cfd4.png)
 
 ---
 
